@@ -1,0 +1,534 @@
+
+.vacantes-summary {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 20px;
+    margin-top: 40px;
+}
+
+.vacantes-total {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 22px;
+    background: #ffffff;
+    border-radius: 14px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.vacantes-total::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #315f57, #58a394);
+}
+
+.vacantes-total:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+}
+
+.vacantes-total-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    background: #e5f0ed;
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.vacantes-total span {
+    display: block;
+    font-size: 13px;
+    color: #89938f;
+}
+
+.vacantes-total strong {
+    font-size: 24px;
+    color: #24443e;
+    letter-spacing: -0.02em;
+}
+
+/* =========================================
+   HERRAMIENTAS
+========================================= */
+
+.vacantes-tools {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.vacantes-search {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    max-width: 420px;
+    padding: 12px 16px;
+    background: #ffffff;
+    border: 1px solid #e5ece9;
+    border-radius: 12px;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.vacantes-search:focus-within {
+    border-color: #58a394;
+    box-shadow: 0 0 0 3px rgba(88, 163, 148, 0.12);
+}
+
+.vacantes-search-icon {
+    font-size: 14px;
+    opacity: 0.5;
+    flex-shrink: 0;
+}
+
+.vacantes-search input {
+    width: 100%;
+    border: none;
+    outline: none;
+    font-size: 14px;
+    color: #315f57;
+    background: transparent;
+}
+
+.vacantes-search input::placeholder {
+    color: #b3bdb8;
+}
+
+.vacantes-results {
+    white-space: nowrap;
+    font-size: 13px;
+    color: #89938f;
+}
+
+.vacantes-results strong {
+    color: #315f57;
+}
+
+/* =========================================
+   TABLA
+========================================= */
+
+.vacantes-table-container {
+    width: 100%;
+    overflow-x: auto;
+    background: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
+}
+
+.vacantes-table {
+    width: 100%;
+    min-width: 1100px;
+    border-collapse: collapse;
+}
+
+.vacantes-table th {
+    padding: 16px;
+    text-align: left;
+    font-size: 13px;
+    font-weight: 600;
+    color: #64746f;
+    background: #f5f8f7;
+    border-bottom: 1px solid #e5ece9;
+    position: sticky;
+    top: 0;
+}
+
+.vacantes-table td {
+    padding: 15px 16px;
+    font-size: 13px;
+    color: #596761;
+    border-bottom: 1px solid #edf1ef;
+}
+
+.vacantes-table tbody tr {
+    transition: background 0.12s ease;
+}
+
+.vacantes-table tbody tr:hover {
+    background: #f8faf9;
+}
+
+.vacantes-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.vacantes-table td strong {
+    color: #315f57;
+}
+
+.vacante-folio {
+    display: inline-block;
+    font-family: "SFMono-Regular", Consolas, monospace;
+    font-size: 11px !important;
+    color: #64746f !important;
+    background: #f5f8f7;
+    padding: 3px 8px;
+    border-radius: 6px;
+}
+
+.vacante-salario {
+    font-weight: 700;
+    color: #315f57 !important;
+}
+
+.sin-vacantes {
+    padding: 50px 20px !important;
+    text-align: center;
+    color: #89938f !important;
+}
+
+.sin-vacantes-icon {
+    display: block;
+    font-size: 26px;
+    margin-bottom: 8px;
+}
+
+/* =========================================
+   BOTONES DE ACCIÓN
+========================================= */
+
+.vacante-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.btn-ver-vacante,
+.btn-editar-vacante,
+.btn-desactivar-vacante,
+.btn-reactivar-vacante {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    border: none;
+    padding: 7px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease;
+}
+
+.btn-ver-vacante:hover,
+.btn-editar-vacante:hover,
+.btn-desactivar-vacante:hover,
+.btn-reactivar-vacante:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+}
+
+.btn-ver-vacante:active,
+.btn-editar-vacante:active,
+.btn-desactivar-vacante:active,
+.btn-reactivar-vacante:active {
+    transform: translateY(0);
+}
+
+.btn-ver-vacante {
+    background: #e5f0ed;
+    color: #315f57;
+}
+
+.btn-editar-vacante {
+    background: #edf1f7;
+    color: #4d6278;
+}
+
+.btn-desactivar-vacante {
+    background: #fff4df;
+    color: #a56a00;
+}
+
+.btn-reactivar-vacante {
+    background: #e5f0ed;
+    color: #315f57;
+}
+
+/* =========================================
+   ESTADOS DE CARGA / ERROR
+========================================= */
+
+.vacantes-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 50px;
+    text-align: center;
+    color: #64746f;
+}
+
+.vacantes-spinner {
+    width: 26px;
+    height: 26px;
+    border: 3px solid #e5ece9;
+    border-top-color: #315f57;
+    border-radius: 50%;
+    animation: vacantes-spin 0.7s linear infinite;
+}
+
+@keyframes vacantes-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.vacantes-error {
+    padding: 20px;
+    background: #fff0f0;
+    border-radius: 12px;
+    color: #b33a3a;
+    font-size: 14px;
+}
+
+/* =========================================
+   RESPONSIVE
+========================================= */
+
+@media (max-width: 700px) {
+    .vacantes-tools {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .vacantes-search {
+        max-width: none;
+    }
+
+    .vacantes-results {
+        text-align: right;
+    }
+}
+
+/* =========================================
+   MODAL DETALLE VACANTE
+========================================= */
+
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(20, 30, 28, 0.45);
+    backdrop-filter: blur(2px);
+    z-index: 1000;
+    animation: vacantes-fade-in 0.15s ease;
+}
+
+@keyframes vacantes-fade-in {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.vacante-modal {
+    position: relative;
+    width: 100%;
+    max-width: 850px;
+    max-height: 85vh;
+    overflow-y: auto;
+    padding: 30px;
+    background: #ffffff;
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+    animation: vacantes-modal-in 0.2s ease;
+}
+
+@keyframes vacantes-modal-in {
+    from {
+        opacity: 0;
+        transform: translateY(12px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.modal-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 10px;
+    background: #f3f5f4;
+    color: #64746f;
+    font-size: 18px;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.modal-close:hover {
+    background: #f8e5e5;
+    color: #b33a3a;
+}
+
+.vacante-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+    padding-bottom: 25px;
+    margin-bottom: 25px;
+    border-bottom: 1px solid #e5ece9;
+}
+
+.vacante-modal-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #89938f;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.vacante-modal-header h2 {
+    margin: 6px 0;
+    color: #24443e;
+    font-size: 26px;
+    letter-spacing: -0.01em;
+}
+
+.vacante-modal-header p {
+    margin: 0;
+    color: #64746f;
+}
+
+.vacante-modal-folio {
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: #e5f0ed;
+    color: #315f57;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: "SFMono-Regular", Consolas, monospace;
+}
+
+.vacante-modal-badges {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.vacante-detail-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 15px;
+}
+
+.vacante-detail-item {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    padding: 15px;
+    background: #f7f9f8;
+    border-radius: 12px;
+    transition: background 0.15s ease;
+}
+
+.vacante-detail-item:hover {
+    background: #f0f5f3;
+}
+
+.vacante-detail-item span {
+    font-size: 12px;
+    color: #89938f;
+}
+
+.vacante-detail-item strong {
+    color: #315f57;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.vacante-detail-item--full {
+    grid-column: 1 / -1;
+}
+
+.modal-loading,
+.modal-error {
+    padding: 40px;
+    text-align: center;
+    color: #64746f;
+}
+
+.modal-error {
+    color: #b33a3a;
+}
+
+@media (max-width: 650px) {
+    .vacante-modal {
+        padding: 22px;
+        max-height: 90vh;
+    }
+
+    .vacante-modal-header {
+        flex-direction: column;
+    }
+
+    .vacante-detail-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* =========================================
+   ESTADO DE VACANTE
+========================================= */
+
+.estado-vacante {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.estado-vacante::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+/* ACTIVA */
+.estado-vacante.activa {
+    background: #e5f0ed;
+    color: #315f57;
+}
+
+/* INACTIVA */
+.estado-vacante.inactiva {
+    background: #fff4df;
+    color: #a56a00;
+}
+
+/* CERRADA */
+.estado-vacante.cerrada {
+    background: #f8e5e5;
+    color: #b33a3a;
+}

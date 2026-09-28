@@ -1,0 +1,44 @@
+/* ============================================================
+   SNE Chiapas — Bolsa de Trabajo
+   Tokens de marca derivados del isotipo (manos verde/dorado)
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap');
+
+:root {
+  /* --- Color: extraído del isotipo (mano verde / mano dorada) --- */
+  --sne-forest: #1f4b3b;       /* verde profundo — superficie del sidebar */
+  --sne-forest-dark: #163a2d;  /* variante más oscura, bordes/gradiente */
+  --sne-hand-green: #2f6b54;   /* verde medio del isotipo — hover/acento */
+  --sne-gold: #c9a15c;         /* dorado de la mano — acento cálido */
+  --sne-gold-soft: #e0bd7e;    /* dorado claro — hover sobre fondo oscuro */
+  --sne-gold-light: #f2e7ce;   /* tinte dorado — fondos suaves sobre crema */
+
+  --sne-cream: #faf8f4;        /* fondo general de la app */
+  --sne-surface: #ffffff;      /* tarjetas / header */
+  --sne-ink: #202a25;          /* texto principal (verde-carbón, no negro puro) */
+  --sne-gray: #6e7a72;         /* texto secundario, con tinte verde */
+  --sne-line: #e7e2d6;         /* bordes sobre crema */
+
+  /* --- Tipografía --- */
+  --font-display: 'Fraunces', 'Georgia', serif;
+  --font-ui: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+
+  /* --- Layout --- */
+  --sidebar-w: 264px;
+  --header-h: 76px;
+  --radius-sm: 88px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+}
+
+/* Línea topográfica — motivo de los cerros de Chiapas, reutilizable
+   como remate discreto en header/sidebar (background-image en SVG inline) */
+.sne-topo-rule {
+  height: 6px;
+  width: 100%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 6'%3E%3Cpath d='M0 5 Q 15 0 30 5 T 60 5 T 90 5 T 120 5 T 150 5 T 180 5 T 210 5' stroke='%23C9A15C' stroke-width='1.4' fill='none' opacity='0.55'/%3E%3C/svg%3E");
+  background-repeat: repeat-x;
+  background-size: 200px 6px;
+}
+

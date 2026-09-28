@@ -1,0 +1,7699 @@
+const {
+    obtenerSesion,
+    crearSesion,
+    actualizarPaso,
+    aumentarIntento,
+    reiniciarIntentos,
+    reiniciarSesion
+} = require("./sesion.service");
+
+const {
+    validarNombre,
+    validarCURP,
+    convertirFecha
+} = require("../utils/validaciones");
+
+const {
+    sexo,
+    nivelEstudios,
+    disponibilidad,
+    respuestaSiNo,
+    horario
+} = require("../utils/catalogos");
+
+const {
+    generarMenu
+} = require("../utils/menu");
+
+const {
+    actualizarDato,
+    generarFolio,
+    completarPerfil,
+    obtenerBuscador
+} = require("./buscador.service");
+
+const {
+    buscarVacantes
+} = require("./vacante.service");
+
+async function procesarMensaje(
+    sesion,
+    mensaje,
+    telefono
+) {
+    let respuesta = "";
+    let siguientePaso = sesion.paso_actual;
+
+    mensaje = mensaje.trim();
+
+    // comandos generales
+
+    const comando = mensaje.toLowerCase();
+
+
+    if(
+        comando === "7" ||
+        comando === "salir" ||
+        comando === "cancelar"
+    ){
+
+        await reiniciarSesion(telefono);
+
+
+        return {
+            respuesta:
+            "👋 Gracias por utilizar el Asistente SNE.\nHasta pronto.",
+            siguientePaso:"finalizado"
+        };
+
+    }
+
+    if(
+        comando === "6" ||
+        comando === "menu" ||
+        comando === "inicio"
+    ){
+
+        return {
+            respuesta:
+`👋 Bienvenido al Asistente SNE
+
+¿Qué deseas hacer?
+
+1️⃣ Buscar vacantes
+2️⃣ Registrar mis datos
+3️⃣ Actualizar mis datos
+4️⃣ Consultar mi folio
+5️⃣ Hablar con un asesor
+6️⃣ Menú principal
+7️⃣ Salir`,
+            siguientePaso:"menu"
+        };
+
+    }
+
+
+    switch (sesion.paso_actual) {
+        case "inicio":
+            respuesta =
+                `👋 Hola, soy el asistente del SNE.
+
+¿En qué puedo ayudarte?
+
+1️⃣ Buscar vacantes
+2️⃣ Registrar mis datos
+3️⃣ Actualizar mis datos
+4️⃣ Consultar mi folio
+5️⃣ Hablar con un asesor
+6️⃣ Menú principal
+7️⃣ Salir`;
+
+            siguientePaso = "menu";
+            break;
+
+        case "menu":
+
+            switch (mensaje) {
+
+                case "1":
+
+                    respuesta = `
+🔎 Buscar vacantes
+
+¿Qué puesto estás buscando?
+`;
+
+                    siguientePaso = "buscar_puesto";
+
+                    break;
+
+
+                case "2": {
+
+                    const usuario = await obtenerBuscador(telefono);
+
+                    if (usuario && usuario.perfil_completo) {
+
+                        respuesta = `
+✅ Ya tienes un perfil registrado.
+
+📄 Folio: ${usuario.folio}
+No es necesario volver a capturar tus datos.
+
+¿Qué deseas hacer?
+
+1️⃣ Buscar vacantes
+2️⃣ Ver mis datos
+3️⃣ Actualizar mis datos
+4️⃣ Salir
+`;
+
+                        siguientePaso = "perfil_completo";
+
+                    } else {
+
+                        respuesta = `
+Perfecto 👍
+
+Vamos a registrar tus datos.
+
+¿Cuál es tu nombre completo?
+`;
+
+                        siguientePaso = "esperando_nombre";
+                    }
+
+                    break;
+                }
+
+
+                case "3": {
+
+                    const usuario = await obtenerBuscador(telefono);
+
+                    if (!usuario) {
+
+                        respuesta = `
+⚠️ No encontramos ningún registro.
+
+Selecciona la opción 2 para registrarte.
+`;
+
+                        siguientePaso = "menu";
+
+                    } else {
+
+                        respuesta = `
+✏️ ¿Qué dato deseas actualizar?
+
+1️⃣ Correo
+2️⃣ Municipio
+3️⃣ Colonia
+4️⃣ Carrera
+5️⃣ Experiencia
+8️⃣ Puesto solicitado
+9️⃣ Sueldo deseado
+10️⃣ Horario
+`;
+
+                        siguientePaso = "seleccionar_actualizacion";
+                    }
+
+                    break;
+                }
+
+
+                case "4":
+
+                    respuesta = `
+🔎 Consultar folio.
+
+Escribe tu folio.
+`;
+
+                    siguientePaso = "consultar_folio";
+
+                    break;
+
+
+                case "5":
+
+                    respuesta = `
+Un asesor se pondrá en contacto contigo.
+`;
+
+                    siguientePaso = "asesor";
+
+                    break;
+
+
+                case "6":
+
+                    siguientePaso = "inicio";
+
+                    break;
+
+
+                case "7":
+
+                    respuesta = `
+👋 Gracias por utilizar el asistente SNE.
+`;
+
+                    siguientePaso = "finalizado";
+
+                    break;
+
+
+                default:
+                    respuesta = `
+⚠️ Selecciona una opción válida.
+
+1️⃣ Buscar vacantes
+2️⃣ Registrar mis datos
+3️⃣ Actualizar mis datos
+4️⃣ Consultar mi folio
+5️⃣ Hablar con un asesor
+6️⃣ Menú principal
+7️⃣ Salir`;
+                    break;
+            }
+
+            break;
+
+        case "perfil_completo": {
+
+            const usuario = await obtenerBuscador(telefono);
+
+            switch (mensaje) {
+
+                case "1":
+                    siguientePaso = "buscar_puesto";
+                    break;
+
+                case "2":
+                    respuesta = `
+📄 Estos son tus datos registrados.
+
+Nombre: ${usuario.nombre_completo}
+CURP: ${usuario.curp}
+Correo: ${usuario.correo}
+Puesto: ${usuario.puesto_solicitado}
+Folio: ${usuario.folio}
+`;
+                    break;
+
+                case "3":
+                    respuesta = `
+✏️ ¿Qué dato deseas actualizar?
+
+1️⃣ Correo
+2️⃣ Municipio
+3️⃣ Colonia
+4️⃣ Carrera
+5️⃣ Experiencia
+ 8 Puesto solicitado
+9 Sueldo deseado
+10 Horario
+`;
+                    siguientePaso = "seleccionar_actualizacion";
+                    break;
+
+                case "4":
+                    respuesta = `
+👋 Gracias por utilizar el sistema.
+`;
+                    siguientePaso = "finalizado";
+                    break;
+
+                default:
+                    respuesta = `
+⚠️ Selecciona una opción válida.
+
+1️⃣ Buscar vacantes
+2️⃣ Ver mis datos
+3️⃣ Actualizar mis datos
+4️⃣ Salir
+`;
+                    break;
+            }
+
+            break;
+        }
+
+        case "seleccionar_actualizacion":
+
+            switch (mensaje) {
+                case "1":
+                    respuesta = "Escribe el nuevo correo electrónico.";
+                    siguientePaso = "actualizar_correo";
+                    break;
+
+                case "2":
+                    respuesta = "Escribe el nuevo municipio.";
+                    siguientePaso = "actualizar_municipio";
+                    break;
+
+                case "3":
+                    respuesta = "Escribe la nueva colonia.";
+                    siguientePaso = "actualizar_colonia";
+                    break;
+
+                case "4":
+                    respuesta = "Escribe la nueva carrera.";
+                    siguientePaso = "actualizar_carrera";
+                    break;
+
+                case "5":
+                    respuesta = "Escribe la experiencia laboral.";
+                    siguientePaso = "actualizar_experiencia";
+                    break;
+
+                case "8":
+                    respuesta = "Escribe el puesto solicitado.";
+                    siguientePaso = "actualizar_puesto";
+                    break;
+
+                case "9":
+                    respuesta = "Escribe el nuevo sueldo.";
+                    siguientePaso = "actualizar_sueldo";
+                    break;
+
+                case "10":
+                    respuesta = "Escribe el horario.";
+                    siguientePaso = "actualizar_horario";
+                    break;
+
+                default:
+                    respuesta = "⚠️ Selecciona una opción válida.";
+                    break;
+            }
+
+            break;
+
+        case "actualizar_correo":
+
+            await actualizarDato(
+                telefono,
+                "correo",
+                mensaje
+            );
+
+            respuesta = "✅ Correo actualizado correctamente.";
+
+            siguientePaso = "menu";
+
+            break;
+
+        case "actualizar_municipio":
+
+            await actualizarDato(
+                telefono,
+                "municipio",
+                mensaje
+            );
+
+            respuesta = "✅ Municipio actualizado correctamente.";
+
+            siguientePaso = "menu";
+
+            break;
+
+        case "actualizar_colonia":
+
+            await actualizarDato(
+                telefono,
+                "colonia",
+                mensaje
+            );
+
+            respuesta = "✅ Colonia actualizada correctamente.";
+
+            siguientePaso = "menu";
+
+            break;
+
+        case "actualizar_carrera":
+
+            await actualizarDato(
+                telefono,
+                "carrera",
+                mensaje
+            );
+
+            respuesta = "✅ Carrera actualizada correctamente.";
+
+            siguientePaso = "menu";
+
+            break;
+
+        case "actualizar_experiencia":
+
+            await actualizarDato(
+                telefono,
+                "experiencia",
+                mensaje
+            );
+
+            respuesta = "✅ Experiencia actualizada correctamente.";
+
+            siguientePaso = "menu";
+
+            break;
+
+        case "actualizar_puesto":
+
+            await actualizarDato(
+                telefono,
+                "puesto_solicitado",
+                mensaje
+            );
+
+            respuesta = "✅ Puesto actualizado correctamente.";
+
+            siguientePaso = "menu";
+
+            break;
+
+        case "actualizar_sueldo":
+
+            await actualizarDato(
+                telefono,
+                "sueldo_deseado",
+                mensaje
+            );
+
+            respuesta = "✅ Sueldo actualizado correctamente.";
+
+            siguientePaso = "menu";
+
+            break;
+
+        case "actualizar_horario":
+
+            await actualizarDato(
+                telefono,
+                "horario",
+                mensaje
+            );
+
+            respuesta = "✅ Horario actualizado correctamente.";
+
+            siguientePaso = "menu";
+
+            break;
+
+        case "esperando_nombre":
+            if (!validarNombre(mensaje)) {
+                respuesta =
+                    "⚠️ Escribe tu nombre completo.";
+            } else {
+                await actualizarDato(
+                    telefono,
+                    "nombre_completo",
+                    mensaje
+                );
+
+                respuesta =
+                    `Gracias ${mensaje}.
+
+Ahora necesito tu CURP.`;
+
+                siguientePaso = "esperando_curp";
+            }
+            break;
+
+        case "esperando_curp":
+            if (!validarCURP(mensaje.toUpperCase())) {
+                respuesta =
+                    "⚠️ La CURP no parece válida. Intenta nuevamente.";
+            } else {
+                await actualizarDato(
+                    telefono,
+                    "curp",
+                    mensaje.toUpperCase()
+                );
+
+                respuesta =
+                    `✅ CURP registrada.
+
+¿Cuál es tu fecha de nacimiento?
+
+Ejemplo:
+08 de noviembre de 2003`;
+
+                siguientePaso = "esperando_fecha";
+            }
+            break;
+
+        case "esperando_fecha": {
+            const fecha = convertirFecha(mensaje);
+
+            if (!fecha) {
+                respuesta =
+                    `⚠️ No pude reconocer la fecha.
+
+Ejemplo:
+08 de noviembre de 2003`;
+            } else {
+                await actualizarDato(
+                    telefono,
+                    "fecha_nacimiento",
+                    fecha
+                );
+
+                respuesta =
+                    `✅ Fecha registrada.
+
+¿Cuál es tu sexo?
+
+${generarMenu(sexo)}`;
+
+                siguientePaso = "esperando_sexo";
+            }
+            break;
+        }
+
+        case "esperando_sexo":
+            if (sexo[mensaje]) {
+                await actualizarDato(
+                    telefono,
+                    "sexo",
+                    sexo[mensaje]
+                );
+
+                respuesta =
+                    `✅ Sexo registrado: ${sexo[mensaje]}
+
+¿Cuál es tu municipio?`;
+
+                siguientePaso = "esperando_municipio";
+            } else {
+                respuesta =
+                    `⚠️ Selecciona una opción válida:
+
+${generarMenu(sexo)}`;
+            }
+            break;
+
+        case "esperando_municipio":
+            if (mensaje.length < 3) {
+                respuesta =
+                    "⚠️ Escribe un municipio válido.";
+            } else {
+                await actualizarDato(
+                    telefono,
+                    "municipio",
+                    mensaje
+                );
+
+                respuesta =
+                    `✅ Municipio registrado: ${mensaje}
+
+¿Cuál es tu nivel de estudios?
+
+${generarMenu(nivelEstudios)}`;
+
+                siguientePaso = "esperando_estudios";
+            }
+            break;
+
+        case "esperando_estudios":
+            if (nivelEstudios[mensaje]) {
+                await actualizarDato(
+                    telefono,
+                    "nivel_estudios",
+                    nivelEstudios[mensaje]
+                );
+
+                respuesta =
+                    `✅ Nivel de estudios: ${nivelEstudios[mensaje]}
+
+¿Cuál es el puesto que buscas?`;
+
+                siguientePaso = "esperando_puesto";
+            } else {
+                respuesta =
+                    `⚠️ Selecciona una opción válida:
+
+${generarMenu(nivelEstudios)}`;
+            }
+            break;
+
+        case "esperando_puesto":
+            if (mensaje.length < 2) {
+                respuesta =
+                    "⚠️ Escribe un puesto válido.";
+            } else {
+                await actualizarDato(
+                    telefono,
+                    "puesto_solicitado",
+                    mensaje
+                );
+
+                const folio = await generarFolio(telefono);
+
+                respuesta =
+                    `✅ Registro completado correctamente.
+
+📄 Tu folio:
+${folio}
+
+Tu perfil básico fue creado.
+
+Completar tu información aumenta tus posibilidades de encontrar mejores oportunidades laborales y recibir vacantes más adecuadas.
+
+¿Qué deseas hacer?
+
+1️⃣ Buscar vacantes
+2️⃣ Completar mi perfil
+3️⃣ Ver mis datos
+4️⃣ Menú principal`;
+
+                siguientePaso = "menu_principal";
+            }
+            break;
+
+        case "finalizado":
+            respuesta =
+                `✅ El registro ya fue completado.
+
+Gracias por utilizar el asistente del SNE.`;
+            break;
+
+        case "menu_principal":
+            switch (mensaje) {
+                case "1":
+                    respuesta =
+                        `🔎 Buscar vacantes
+
+¿Qué puesto estás buscando?`;
+
+                    siguientePaso = "buscar_vacante";
+                    break;
+
+                case "2":
+                    respuesta =
+                        `Completar tu perfil te dará más oportunidades.
+
+Podrás agregar:
+
+✅ Experiencia laboral
+✅ Carrera
+✅ Correo
+✅ Colonia
+✅ Licencia
+✅ Vehículo
+✅ Horario
+✅ Sueldo esperado
+
+¿Deseas continuar?
+
+1️⃣ Sí
+2️⃣ No`;
+
+                    siguientePaso = "confirmar_completar_perfil";
+                    break;
+
+                case "3":
+                    respuesta =
+                        `📄 Consulta de información.
+
+Escribe tu folio.
+
+Ejemplo:
+
+SNE-2026-000001`;
+
+                    siguientePaso = "consultar_folio";
+                    break;
+
+                case "4":
+                    respuesta =
+                        `🏢 Menú principal
+
+1️⃣ Buscar vacantes
+2️⃣ Completar mi perfil
+3️⃣ Ver mis datos
+4️⃣ Menú principal`;
+
+                    siguientePaso = "inicio"; 
+                    break;
+
+                default:
+                    respuesta =
+                        `⚠️ Selecciona una opción válida.
+
+1️⃣ Buscar vacantes
+2️⃣ Completar mi perfil
+3️⃣ Ver mis datos
+4️⃣ Menú principal`;
+                    break;
+            }
+            break;
+
+        case "confirmar_completar_perfil":
+            if (mensaje === "1") {
+                respuesta =
+                    `Perfecto 👍
+
+¿Cuál es tu correo electrónico?`;
+
+                siguientePaso = "esperando_correo";
+            } else if (mensaje === "2") {
+                respuesta =
+                    `De acuerdo.
+
+Regresando al menú principal.
+
+1️⃣ Buscar vacantes
+2️⃣ Completar mi perfil
+3️⃣ Ver mis datos
+4️⃣ Menú principal`;
+
+                siguientePaso = "menu_principal";
+            } else {
+                respuesta =
+                    `⚠️ Selecciona una opción válida.
+
+1️⃣ Sí
+2️⃣ No`;
+            }
+            break;
+
+        case "esperando_correo":
+            // Validación básica de correo
+            if (!mensaje.includes('@') || !mensaje.includes('.')) {
+                respuesta =
+                    "⚠️ Escribe un correo electrónico válido (ejemplo: usuario@dominio.com)";
+            } else {
+                await actualizarDato(
+                    telefono,
+                    "correo",
+                    mensaje
+                );
+
+                respuesta =
+                    `✅ Correo registrado.
+
+¿Cuál es tu colonia?`;
+
+                siguientePaso = "esperando_colonia";
+            }
+            break;
+
+        case "esperando_colonia":
+            if (mensaje.length < 3) {
+                respuesta =
+                    "⚠️ Escribe una colonia válida.";
+            } else {
+                await actualizarDato(
+                    telefono,
+                    "colonia",
+                    mensaje
+                );
+
+                respuesta =
+                    `✅ Colonia registrada.
+
+¿Cuál es tu carrera o profesión?`;
+
+                siguientePaso = "esperando_carrera";
+            }
+            break;
+
+        case "esperando_carrera":
+            if (mensaje.length < 2) {
+                respuesta =
+                    "⚠️ Escribe una carrera o profesión válida.";
+            } else {
+                await actualizarDato(
+                    telefono,
+                    "carrera",
+                    mensaje
+                );
+
+                respuesta =
+                    `✅ Carrera registrada.
+
+Cuéntame tu experiencia laboral.`;
+
+                siguientePaso = "esperando_experiencia";
+            }
+            break;
+
+        case "esperando_experiencia":
+            if (mensaje.length < 5) {
+                respuesta =
+                    "⚠️ Escribe una descripción más detallada de tu experiencia.";
+            } else {
+                await actualizarDato(
+                    telefono,
+                    "experiencia",
+                    mensaje
+                );
+
+                respuesta =
+                    `✅ Experiencia registrada.
+
+¿Tienes licencia de conducir?
+
+1️⃣ Sí
+2️⃣ No`;
+
+                siguientePaso = "perfil_licencia";
+            }
+            break;
+
+        case "perfil_licencia":
+            if (respuestaSiNo[mensaje]) {
+                await actualizarDato(
+                    telefono,
+                    "licencia_conducir",
+                    mensaje === "1"
+                );
+
+                respuesta =
+                    `✅ Licencia registrada: ${respuestaSiNo[mensaje]}
+
+¿Tienes vehículo propio?
+
+1️⃣ Sí
+2️⃣ No`;
+
+                siguientePaso = "perfil_vehiculo";
+            } else {
+                respuesta =
+                    `⚠️ Selecciona una opción válida.
+
+1️⃣ Sí
+2️⃣ No`;
+            }
+            break;
+
+        case "perfil_vehiculo":
+            if (respuestaSiNo[mensaje]) {
+                await actualizarDato(
+                    telefono,
+                    "vehiculo_propio",
+                    mensaje === "1"
+                );
+
+                respuesta =
+                    `✅ Vehículo registrado: ${respuestaSiNo[mensaje]}
+
+¿Tienes disponibilidad para viajar?
+
+1️⃣ Sí
+2️⃣ No`;
+
+                siguientePaso = "perfil_viajar";
+            } else {
+                respuesta =
+                    `⚠️ Selecciona una opción válida.
+
+1️⃣ Sí
+2️⃣ No`;
+            }
+            break;
+
+        case "perfil_viajar":
+            if (respuestaSiNo[mensaje]) {
+                await actualizarDato(
+                    telefono,
+                    "disponibilidad_viajar",
+                    mensaje === "1"
+                );
+
+                respuesta =
+                    `✅ Disponibilidad registrada: ${respuestaSiNo[mensaje]}
+
+¿Cuál es tu horario disponible?
+
+${generarMenu(horario)}`;
+
+                siguientePaso = "perfil_horario";
+            } else {
+                respuesta =
+                    `⚠️ Selecciona una opción válida.
+
+1️⃣ Sí
+2️⃣ No`;
+            }
+            break;
+
+        case "perfil_horario":
+
+            if (horario[mensaje]) {
+
+                await actualizarDato(
+                    telefono,
+                    "horario",
+                    horario[mensaje]
+                );
+
+                respuesta =
+                    `✅ Horario registrado: ${horario[mensaje]}
+
+¿Cuál es tu sueldo esperado?
+
+Ejemplo:
+$15,000 MXN`;
+
+                siguientePaso = "perfil_sueldo";
+            } else {
+                respuesta =
+                    `⚠️ Selecciona una opción válida:
+
+${generarMenu(horario)}`;
+            }
+            break;
+
+        case "perfil_sueldo": {
+            
+            // Validación básica de sueldo
+            const sueldoLimpio = mensaje.replace(/[^0-9]/g, '');
+            if (sueldoLimpio.length < 3) {
+                respuesta =
+                    "⚠️ Escribe un sueldo válido (ejemplo: $15,000 MXN)";
+            } else {
+                await actualizarDato(
+                    telefono,
+                    "sueldo_deseado",
+                    mensaje
+                );
+                // Marcar el perfil como completo
+             await completarPerfil(telefono);
+
+                const folio = await generarFolio(telefono);
+
+                respuesta =
+                    `🎉 ¡Perfil completado exitosamente!
+
+📄 Tu folio: ${folio}
+
+
+Tu perfil está al 100% y ahora tienes mayores oportunidades de encontrar el empleo ideal.
+
+¿Qué deseas hacer?
+
+1️⃣ Buscar vacantes
+2️⃣ Ver mis datos
+3️⃣ Menú principal`;
+
+                siguientePaso = "menu_principal";
+            }
+            break;
+        }
+
+        case "buscar_puesto":
+
+    if (mensaje.length < 2) {
+
+        respuesta =
+        `⚠️ Escribe un puesto válido para buscar.
+
+Ejemplo:
+- Chofer
+- Auxiliar
+- Ventas
+- Administrativo`;
+
+    } else {
+
+
+        const vacantes =
+        await buscarVacantes(mensaje);
+
+
+
+        if(vacantes.length === 0){
+
+
+            respuesta =
+            `😕 No encontré vacantes para:
+
+"${mensaje}"
+
+Puedes intentar con otro puesto.
+
+Escribe otro puesto o:
+
+6️⃣ Menú principal
+7️⃣ Salir`;
+
+
+            // se queda buscando
+            siguientePaso = "buscar_puesto";
+
+
+        }else{
+
+
+            respuesta =
+            `🔎 Encontré estas vacantes:
+
+`;
+
+
+
+            vacantes.forEach((v,index)=>{
+
+
+                respuesta +=
+`
+${index + 1}️⃣ ${v.puesto}
+
+🏢 Empresa:
+${v.empresa}
+
+📍 Ubicación:
+${v.municipio}, ${v.entidad}
+
+💰 Salario:
+$${v.salario}
+
+📚 Experiencia:
+${v.experiencia}
+
+`;
+
+            });
+
+
+
+            respuesta +=
+`
+¿Qué deseas hacer?
+
+1️⃣ Ver detalle de una vacante
+2️⃣ Nueva búsqueda
+6️⃣ Menú principal
+7️⃣ Salir`;
+
+
+
+            siguientePaso = "seleccionar_vacante";
+
+        }
+
+    }
+
+break;
+
+        case "seleccionar_vacante":
+
+            if (mensaje === "2") {
+
+                respuesta =
+                    `🔎 Nueva búsqueda
+
+¿Qué puesto estás buscando?`;
+
+                siguientePaso = "buscar_puesto";
+
+            } else if (!isNaN(mensaje)) {
+
+             
+                respuesta =
+                    `📋 Mostrando detalle de la vacante seleccionada.
+
+¿Qué deseas hacer?
+
+1️⃣ Postularme
+2️⃣ Buscar otra vacante
+6️⃣ Menú principal
+7️⃣ Salir`;
+
+                siguientePaso = "detalle_vacante";
+
+            } else {
+
+                respuesta =
+                    `⚠️ Selecciona una opción válida.`;
+
+            }
+
+        break;
+
+        case "detalle_vacante":
+            switch (mensaje) {
+                case "1":
+                    respuesta =
+                        `✅ ¡Postulación exitosa!
+
+Tu solicitud ha sido enviada. El reclutador se pondrá en contacto contigo.
+
+¿Qué deseas hacer?
+
+1️⃣ Buscar más vacantes
+2️⃣ Menú principal`;
+
+                    siguientePaso = "menu_principal";
+                    break;
+
+                case "2":
+                    respuesta =
+                        `🔎 Nueva búsqueda
+
+¿Qué puesto estás buscando?`;
+
+                    siguientePaso = "buscar_puesto";
+                    break;
+
+                case "3":
+                    respuesta =
+                        `🏢 Menú principal
+
+1️⃣ Buscar vacantes
+2️⃣ Completar mi perfil
+3️⃣ Ver mis datos
+4️⃣ Menú principal`;
+
+                    siguientePaso = "menu_principal";
+                    break;
+
+                default:
+                    respuesta =
+                        `⚠️ Selecciona una opción válida.
+
+1️⃣ Postularme
+2️⃣ Buscar otra vacante
+3️⃣ Menú principal`;
+                    break;
+            }
+            break;
+
+        case "consultar_folio":
+            // Validación básica de folio
+            if (mensaje.length < 5) {
+                respuesta =
+                    "⚠️ Escribe un folio válido (ejemplo: SNE-2026-000001)";
+            } else {
+                // Aquí iría la lógica de consulta de folio
+                respuesta =
+                    `📄 Información del folio: ${mensaje}
+
+Nombre: Juan Pérez
+CURP: PEREJ123456
+Estado: Activo
+Perfil: Completado al 80%
+
+¿Qué deseas hacer?
+
+1️⃣ Completar mi perfil
+2️⃣ Buscar vacantes
+3️⃣ Menú principal`;
+
+                siguientePaso = "menu_principal";
+            }
+            break;
+
+        default:
+            respuesta =
+                `No entendí tu mensaje.
+
+Por favor, selecciona una opción válida.`;
+            break;
+    }
+
+    return {
+        respuesta,
+        siguientePaso
+    };
+}
+
+module.exports = {
+    procesarMensaje
+};
+
+
+
+
+// =====================================================
+// VERIFICAR SI EL PERFIL ESTÁ COMPLETO
+// =====================================================
+
+async function verificarPerfilCompleto(telefono) {
+
+    const resultado = await db.query(
+        `
+        SELECT *
+        FROM buscadores_empleo
+        WHERE telefono = $1
+        `,
+        [telefono]
+    );
+
+    if (resultado.rows.length === 0) {
+        return false;
+    }
+
+    const usuario = resultado.rows[0];
+
+    const completo = (
+        usuario.nombre_completo !== null &&
+        usuario.curp !== null &&
+        usuario.fecha_nacimiento !== null &&
+        usuario.sexo !== null &&
+        usuario.correo !== null &&
+        usuario.municipio !== null &&
+        usuario.colonia !== null &&
+        usuario.nivel_estudios !== null &&
+        usuario.carrera !== null &&
+        usuario.experiencia !== null &&
+        usuario.puesto_solicitado !== null &&
+        usuario.sueldo_deseado !== null &&
+        usuario.horario !== null
+    );
+
+    if (completo) {
+
+        await db.query(
+            `
+            UPDATE buscadores_empleo
+            SET perfil_completo = TRUE
+            WHERE telefono = $1
+            `,
+            [telefono]
+        );
+
+        console.log("Perfil actualizado");
+
+        return true;
+    }
+
+    return false;
+}
+
+////////////////////////////////////////////////////////////////
+const {
+    obtenerSesion,
+    crearSesion,
+    actualizarPaso,
+    aumentarIntento,
+    reiniciarIntentos,
+    reiniciarSesion,
+    actualizarDatosTemporales
+} = require("./sesion.service");
+
+const {
+    validarNombre,
+    validarCURP,
+    convertirFecha,
+    validarCorreo
+} = require("../utils/validaciones");
+
+const {
+    sexo,
+    nivelEstudios,
+    disponibilidad,
+    respuestaSiNo,
+    horario,
+    municipios,
+    categoriasCarrera,
+    carreras
+} = require("../utils/catalogos");
+
+const {
+    generarMenu
+} = require("../utils/menu");
+
+const {
+    actualizarDato,
+    generarFolio,
+    completarPerfil,
+    obtenerBuscadorPorTelefono,
+    obtenerUsuarioPorFolio,
+    buscarVacantesPorPuesto,
+    verificarPerfilCompleto
+} = require("./buscador.service");
+
+const {
+    buscarVacantes
+} = require("./vacante.service");
+
+async function procesarMensaje(
+    sesion,
+    mensaje,
+    telefono
+) {
+    let respuesta = "";
+    let siguientePaso = sesion.paso_actual;
+
+    // ==========================================
+    // FIX: normalizar "mensaje" a string
+    // (evita "mensaje.trim is not a function" si
+    // llega null/undefined/number desde Thunder u
+    // otro cliente HTTP)
+    // ==========================================
+    mensaje = String(mensaje ?? "").trim();
+
+    // comandos generales
+
+    const comando = mensaje.toLowerCase();
+
+
+    if(
+        comando === "7" ||
+        comando === "salir" ||
+        comando === "cancelar"
+    ){
+
+        await reiniciarSesion(telefono);
+
+
+        return {
+            respuesta:
+            "👋 Gracias por utilizar el Asistente SNE.\nHasta pronto.",
+            siguientePaso:"finalizado"
+        };
+
+    }
+
+    if(
+        comando === "6" ||
+        comando === "menu" ||
+        comando === "inicio"
+    ){
+
+        return {
+            respuesta:
+`👋 Bienvenido al Asistente SNE
+
+¿Qué deseas hacer?
+
+1️⃣ Buscar vacantes
+2️⃣ Registrar mis datos
+3️⃣ Actualizar mis datos
+4️⃣ Consultar mi folio
+5️⃣ Hablar con un asesor
+6️⃣ Menú principal
+7️⃣ Salir`,
+            siguientePaso:"menu"
+        };
+
+    }
+
+
+    switch (sesion.paso_actual) {
+        case "inicio":
+            respuesta =
+                `👋 Hola, soy el asistente del SNE.
+
+¿En qué puedo ayudarte?
+
+1️⃣ Buscar vacantes
+2️⃣ Registrar mis datos
+3️⃣ Actualizar mis datos
+4️⃣ Consultar mi folio
+5️⃣ Hablar con un asesor
+6️⃣ Menú principal
+7️⃣ Salir`;
+
+            siguientePaso = "menu";
+            break;
+
+        case "menu":
+
+            switch (mensaje) {
+
+                case "1":
+
+                    respuesta = `
+🔎 Buscar vacantes
+
+¿Qué puesto estás buscando?
+`;
+
+                    siguientePaso = "buscar_puesto";
+
+                    break;
+
+
+                case "2": {
+
+                    // FIX: la función se llama "obtenerBuscadorPorTelefono",
+                    // "obtenerBuscador" no existe y tronaba con ReferenceError.
+                    const usuario = await obtenerBuscadorPorTelefono(telefono);
+
+                    if (usuario && usuario.perfil_completo) {
+
+                        respuesta = `
+✅ Ya tienes un perfil registrado.
+
+📄 Folio: ${usuario.folio}
+No es necesario volver a capturar tus datos.
+
+¿Qué deseas hacer?
+
+1️⃣ Buscar vacantes
+2️⃣ Ver mis datos
+3️⃣ Actualizar mis datos
+4️⃣ Salir
+`;
+
+                        siguientePaso = "perfil_completo";
+
+                    } else {
+
+                        respuesta = `
+Perfecto 👍
+
+Vamos a registrar tus datos.
+
+¿Cuál es tu nombre completo?
+`;
+
+                        siguientePaso = "esperando_nombre";
+                    }
+
+                    break;
+                }
+
+
+                case "3": {
+
+                    // FIX: mismo cambio de "obtenerBuscador" -> "obtenerBuscadorPorTelefono"
+                    const usuario = await obtenerBuscadorPorTelefono(telefono);
+
+                    if (!usuario) {
+
+                        respuesta = `
+⚠️ No encontramos ningún registro.
+
+Selecciona la opción 2 para registrarte.
+`;
+
+                        siguientePaso = "menu";
+
+                    } else {
+
+                        respuesta = `
+✏️ ¿Qué dato deseas actualizar?
+
+1️⃣ Correo
+2️⃣ Municipio
+3️⃣ Colonia
+4️⃣ Carrera
+5️⃣ Experiencia
+ 0  Puesto solicitado
+9️⃣ Sueldo deseado
+10️⃣ Horario
+`;
+
+                        siguientePaso = "seleccionar_actualizacion";
+                    }
+
+                    break;
+                }
+
+
+                case "4":
+
+                    respuesta = `
+🔎 Consultar folio.
+
+Escribe tu folio.
+`;
+
+                    siguientePaso = "consultar_folio";
+
+                    break;
+
+
+                case "5":
+
+                    respuesta = `
+Un asesor se pondrá en contacto contigo.
+`;
+
+                    siguientePaso = "asesor";
+
+                    break;
+
+
+                case "6":
+
+                    siguientePaso = "inicio";
+
+                    break;
+
+
+                case "7":
+
+                    respuesta = `
+👋 Gracias por utilizar el asistente SNE.
+`;
+
+                    siguientePaso = "finalizado";
+
+                    break;
+
+
+                default:
+                    respuesta = `
+⚠️ Selecciona una opción válida.
+
+1️⃣ Buscar vacantes
+2️⃣ Registrar mis datos
+3️⃣ Actualizar mis datos
+4️⃣ Consultar mi folio
+5️⃣ Hablar con un asesor
+6️⃣ Menú principal
+7️⃣ Salir`;
+                    break;
+            }
+
+            break;
+
+        case "perfil_completo": {
+
+            // FIX: "obtenerBuscador" -> "obtenerBuscadorPorTelefono"
+            const usuario = await obtenerBuscadorPorTelefono(telefono);
+
+            switch (mensaje) {
+
+                case "1":
+                    siguientePaso = "buscar_puesto";
+                    break;
+
+                case "2":
+                    respuesta = `
+📄 Estos son tus datos registrados.
+
+Nombre: ${usuario.nombre_completo}
+CURP: ${usuario.curp}
+Correo: ${usuario.correo}
+Puesto: ${usuario.puesto_solicitado}
+Folio: ${usuario.folio}
+`;
+                    break;
+
+                case "3":
+                    respuesta = `
+✏️ ¿Qué dato deseas actualizar?
+
+1️⃣ Correo
+2️⃣ Municipio
+3️⃣ Colonia
+4️⃣ Carrera
+5️⃣ Experiencia
+ 0  Puesto solicitado
+9️⃣ Sueldo deseado
+10️⃣ Horario
+`;
+                    siguientePaso = "seleccionar_actualizacion";
+                    break;
+
+                case "4":
+                    respuesta = `
+👋 Gracias por utilizar el sistema.
+`;
+                    siguientePaso = "finalizado";
+                    break;
+
+                default:
+                    respuesta = `
+⚠️ Selecciona una opción válida.
+
+1️⃣ Buscar vacantes
+2️⃣ Ver mis datos
+3️⃣ Actualizar mis datos
+4️⃣ Salir
+`;
+                    break;
+            }
+
+            break;
+        }
+
+        case "seleccionar_actualizacion":
+
+            switch (mensaje) {
+                case "1":
+            respuesta = `
+            📧 Escribe el nuevo correo electrónico.
+            Ejemplo:
+           usuario@gmail.com
+            `;
+
+            siguientePaso = "actualizar_correo";
+            break;
+
+                case "2":
+                    respuesta = `
+                    Selecciona el municipio.
+                    ${generarMenu(municipios)}
+                         `;
+                    siguientePaso = "actualizar_municipio";
+                    break;
+
+                case "3":
+                    respuesta = "Escribe la nueva colonia.";
+                    siguientePaso = "actualizar_colonia";
+                    break;
+
+                case "4":
+
+                 respuesta = `
+               🎓 Selecciona el área de tu carrera.
+
+                 ${generarMenu(categoriasCarrera)}
+                    `;
+
+                 siguientePaso = "actualizar_categoria_carrera";
+
+                 console.log("PASO GUARDADO:", siguientePaso);
+
+                 break;
+
+                case "5":
+                     respuesta = `
+                    💼 Describe tu experiencia laboral.
+
+                     Incluye la siguiente información:
+
+                     • Puesto
+                     • Empresa
+                     • Periodo
+                     • Actividades realizadas
+                     `;
+
+                      siguientePaso = "actualizar_experiencia";
+                     break;
+
+                // ==========================================
+                // FIX: le faltaba el "break" (caía directo al
+                // case "9" y sobreescribía todo con el mensaje
+                // de sueldo). También apuntaba al flujo de
+                // carrera en vez de al de "puesto solicitado"
+                // que es lo que dice la etiqueta del menú.
+                // ==========================================
+                case "0":
+                       respuesta = `
+                    💼 Escribe el nuevo puesto que estás buscando.
+
+                     Ejemplo:
+                     Chofer
+                         `;
+
+                     siguientePaso = "actualizar_puesto";
+
+                     break;
+
+                case "9":
+                    respuesta = "Escribe el nuevo sueldo.";
+                    siguientePaso = "actualizar_sueldo";
+                    break;
+
+                case "10":
+                     respuesta = `
+                    🕒 Selecciona el horario.
+                    ${generarMenu(horario)}
+                           `;
+                    siguientePaso = "actualizar_horario";
+                    break;
+
+                default:
+                    respuesta = "⚠️ Selecciona una opción válida.";
+                    break;
+            }
+
+            break;
+
+        case "actualizar_correo":
+
+    if (!validarCorreo(mensaje)) {
+
+        respuesta =
+            "⚠️ Escribe un correo válido.\n\nEjemplo:\nusuario@gmail.com";
+
+    } else {
+
+        await actualizarDato(
+            telefono,
+            "correo",
+            mensaje
+        );
+
+        respuesta = "✅ Correo actualizado correctamente.";
+        siguientePaso = "menu";
+    }
+
+    break;
+
+        case "actualizar_municipio":
+
+    if (!municipios[mensaje]) {
+
+        respuesta = `
+⚠️ Selecciona una opción válida.
+
+${generarMenu(municipios)}
+`;
+
+    } else {
+
+        await actualizarDato(
+            telefono,
+            "municipio",
+            municipios[mensaje]
+        );
+
+        respuesta = "✅ Municipio actualizado.";
+        siguientePaso = "menu";
+    }
+
+break;
+
+case "actualizar_categoria_carrera": {
+
+    if (!categoriasCarrera[mensaje]) {
+
+        respuesta = `
+⚠️ Selecciona una opción válida.
+
+${generarMenu(categoriasCarrera)}
+`;
+
+    } else {
+
+        const sesionActual = await obtenerSesion(telefono);
+
+        let datosTemporales = sesionActual.datos_temporales || {};
+
+
+        datosTemporales.categoriaCarrera = mensaje;
+
+
+        await actualizarDatosTemporales(
+            telefono,
+            datosTemporales
+        );
+
+
+        respuesta = `
+📚 Selecciona tu carrera:
+
+${generarMenu(carreras[mensaje])}
+`;
+
+        siguientePaso = "actualizar_carrera";
+    }
+
+    break;
+}
+
+        case "actualizar_colonia":
+
+    if (!mensaje.trim()) {
+
+        respuesta = "⚠️ Escribe una colonia válida.";
+
+        break;
+    }
+
+    await actualizarDato(
+        telefono,
+        "colonia",
+        mensaje
+    );
+
+    respuesta = "✅ Colonia actualizada correctamente.";
+    siguientePaso = "menu";
+
+break;
+
+// ==========================================
+// FIX: este case no tenía { } propias. Declaraba
+// "const sesion" / "const categoria" directamente
+// en el bloque del switch principal, chocando en
+// el mismo scope que el parámetro "sesion" de la
+// función. Le puse sus propias llaves para aislarlo,
+// además de renombrar la variable para evitar
+// cualquier ambigüedad con el parámetro "sesion".
+// ==========================================
+case "actualizar_carrera": {
+
+    const sesionActual = await obtenerSesion(telefono);
+
+    const categoria = sesionActual.datos_temporales.categoriaCarrera;
+
+
+    if (!carreras[categoria][mensaje]) {
+
+        respuesta = `
+⚠️ Selecciona una carrera válida.
+
+${generarMenu(carreras[categoria])}
+`;
+
+    } else {
+
+        await actualizarDato(
+            telefono,
+            "carrera",
+            carreras[categoria][mensaje]
+        );
+
+
+        respuesta = `
+✅ Carrera actualizada correctamente.
+
+🎓 Carrera:
+${carreras[categoria][mensaje]}
+`;
+
+        siguientePaso = "menu";
+    }
+
+    break;
+}
+
+case "actualizar_experiencia":
+
+    if (!mensaje.trim()) {
+
+        respuesta = "⚠️ Escribe una experiencia válida.";
+
+        break;
+    }
+
+    await actualizarDato(
+        telefono,
+        "experiencia",
+        mensaje
+    );
+
+    respuesta = "✅ Experiencia actualizada correctamente.";
+
+    siguientePaso = "menu";
+
+break;
+
+        case "actualizar_puesto":
+
+            if (mensaje.length < 2) {
+
+                respuesta = "⚠️ Escribe un puesto válido.";
+
+                break;
+            }
+
+            await actualizarDato(
+                telefono,
+                "puesto_solicitado",
+                mensaje
+            );
+
+            respuesta = "✅ Puesto actualizado correctamente.";
+
+            siguientePaso = "menu";
+
+            break;
+
+        case "actualizar_sueldo":
+
+            await actualizarDato(
+                telefono,
+                "sueldo_deseado",
+                mensaje
+            );
+
+            respuesta = "✅ Sueldo actualizado correctamente.";
+
+            siguientePaso = "menu";
+
+            break;
+
+        case "actualizar_horario":
+
+    if (!horario[mensaje]) {
+
+        respuesta = `
+⚠️ Selecciona una opción válida.
+
+${generarMenu(horario)}
+`;
+
+    } else {
+
+        await actualizarDato(
+            telefono,
+            "horario",
+            horario[mensaje]
+        );
+
+        respuesta = `
+✅ Horario actualizado correctamente.
+
+Horario seleccionado:
+${horario[mensaje]}
+`;
+
+        siguientePaso = "menu";
+    }
+
+break;
+
+        case "esperando_nombre":
+            if (!validarNombre(mensaje)) {
+                respuesta =
+                    "⚠️ Escribe tu nombre completo.";
+            } else {
+                await actualizarDato(
+                    telefono,
+                    "nombre_completo",
+                    mensaje
+                );
+
+                respuesta =
+                    `Gracias ${mensaje}.
+
+Ahora necesito tu CURP.`;
+
+                siguientePaso = "esperando_curp";
+            }
+            break;
+
+        case "esperando_curp":
+            if (!validarCURP(mensaje.toUpperCase())) {
+                respuesta =
+                    "⚠️ La CURP no parece válida. Intenta nuevamente.";
+            } else {
+                await actualizarDato(
+                    telefono,
+                    "curp",
+                    mensaje.toUpperCase()
+                );
+
+                respuesta =
+                    `✅ CURP registrada.
+
+¿Cuál es tu fecha de nacimiento?
+
+Ejemplo:
+08 de noviembre de 2003`;
+
+                siguientePaso = "esperando_fecha";
+            }
+            break;
+
+        case "esperando_fecha": {
+            const fecha = convertirFecha(mensaje);
+
+            if (!fecha) {
+                respuesta =
+                    `⚠️ No pude reconocer la fecha.
+
+Ejemplo:
+08 de noviembre de 2003`;
+            } else {
+                await actualizarDato(
+                    telefono,
+                    "fecha_nacimiento",
+                    fecha
+                );
+
+                respuesta =
+                    `✅ Fecha registrada.
+
+¿Cuál es tu sexo?
+
+${generarMenu(sexo)}`;
+
+                siguientePaso = "esperando_sexo";
+            }
+            break;
+        }
+
+        case "esperando_sexo":
+            if (sexo[mensaje]) {
+                await actualizarDato(
+                    telefono,
+                    "sexo",
+                    sexo[mensaje]
+                );
+
+                respuesta =
+                    `✅ Sexo registrado: ${sexo[mensaje]}
+
+¿Cuál es tu municipio?`;
+
+                siguientePaso = "esperando_municipio";
+            } else {
+                respuesta =
+                    `⚠️ Selecciona una opción válida:
+
+${generarMenu(sexo)}`;
+            }
+            break;
+
+        case "esperando_municipio":
+            if (mensaje.length < 3) {
+                respuesta =
+                    "⚠️ Escribe un municipio válido.";
+            } else {
+                await actualizarDato(
+                    telefono,
+                    "municipio",
+                    mensaje
+                );
+
+                respuesta =
+                    `✅ Municipio registrado: ${mensaje}
+
+¿Cuál es tu nivel de estudios?
+
+${generarMenu(nivelEstudios)}`;
+
+                siguientePaso = "esperando_estudios";
+            }
+            break;
+
+        case "esperando_estudios":
+            if (nivelEstudios[mensaje]) {
+                await actualizarDato(
+                    telefono,
+                    "nivel_estudios",
+                    nivelEstudios[mensaje]
+                );
+
+                respuesta =
+                    `✅ Nivel de estudios: ${nivelEstudios[mensaje]}
+
+¿Cuál es el puesto que buscas?`;
+
+                siguientePaso = "esperando_puesto";
+            } else {
+                respuesta =
+                    `⚠️ Selecciona una opción válida:
+
+${generarMenu(nivelEstudios)}`;
+            }
+            break;
+
+        case "esperando_puesto":
+            if (mensaje.length < 2) {
+                respuesta =
+                    "⚠️ Escribe un puesto válido.";
+            } else {
+                await actualizarDato(
+                    telefono,
+                    "puesto_solicitado",
+                    mensaje
+                );
+
+                const folio = await generarFolio(telefono);
+
+                respuesta =
+                    `✅ Registro completado correctamente.
+
+📄 Tu folio:
+${folio}
+
+Tu perfil básico fue creado.
+
+Completar tu información aumenta tus posibilidades de encontrar mejores oportunidades laborales y recibir vacantes más adecuadas.
+
+¿Qué deseas hacer?
+
+1️⃣ Buscar vacantes
+2️⃣ Completar mi perfil
+3️⃣ Ver mis datos
+4️⃣ Menú principal`;
+
+                siguientePaso = "menu_principal";
+            }
+            break;
+
+        case "finalizado":
+            respuesta =
+                `✅ El registro ya fue completado.
+
+Gracias por utilizar el asistente del SNE.`;
+            break;
+
+        case "menu_principal":
+            switch (mensaje) {
+                case "1":
+                    respuesta =
+                        `🔎 Buscar vacantes
+
+¿Qué puesto estás buscando?`;
+
+                    // FIX: apuntaba a "buscar_vacante" (singular),
+                    // un estado que NO existe en el switch. El
+                    // siguiente mensaje del usuario caía siempre
+                    // en el "default" ("No entendí tu mensaje").
+                    siguientePaso = "buscar_puesto";
+                    break;
+
+                case "2":
+                    respuesta =
+                        `Completar tu perfil te dará más oportunidades.
+
+Podrás agregar:
+
+✅ Experiencia laboral
+✅ Carrera
+✅ Correo
+✅ Colonia
+✅ Licencia
+✅ Vehículo
+✅ Horario
+✅ Sueldo esperado
+
+¿Deseas continuar?
+
+1️⃣ Sí
+2️⃣ No`;
+
+                    siguientePaso = "confirmar_completar_perfil";
+                    break;
+
+                case "3":
+                    respuesta =
+                        `📄 Consulta de información.
+
+Escribe tu folio.
+
+Ejemplo:
+
+SNE-2026-000001`;
+
+                    siguientePaso = "consultar_folio";
+                    break;
+
+                case "4":
+                    respuesta =
+                        `🏢 Menú principal
+
+1️⃣ Buscar vacantes
+2️⃣ Completar mi perfil
+3️⃣ Ver mis datos
+4️⃣ Menú principal`;
+
+                    siguientePaso = "inicio"; 
+                    break;
+
+                default:
+                    respuesta =
+                        `⚠️ Selecciona una opción válida.
+
+1️⃣ Buscar vacantes
+2️⃣ Completar mi perfil
+3️⃣ Ver mis datos
+4️⃣ Menú principal`;
+                    break;
+            }
+            break;
+
+        case "confirmar_completar_perfil":
+            if (mensaje === "1") {
+                respuesta =
+                    `Perfecto 👍
+
+¿Cuál es tu correo electrónico?`;
+
+                siguientePaso = "esperando_correo";
+            } else if (mensaje === "2") {
+                respuesta =
+                    `De acuerdo.
+
+Regresando al menú principal.
+
+1️⃣ Buscar vacantes
+2️⃣ Completar mi perfil
+3️⃣ Ver mis datos
+4️⃣ Menú principal`;
+
+                siguientePaso = "menu_principal";
+            } else {
+                respuesta =
+                    `⚠️ Selecciona una opción válida.
+
+1️⃣ Sí
+2️⃣ No`;
+            }
+            break;
+
+        case "esperando_correo":
+            // Validación básica de correo
+            if (!mensaje.includes('@') || !mensaje.includes('.')) {
+                respuesta =
+                    "⚠️ Escribe un correo electrónico válido (ejemplo: usuario@dominio.com)";
+            } else {
+                await actualizarDato(
+                    telefono,
+                    "correo",
+                    mensaje
+                );
+
+                respuesta =
+                    `✅ Correo registrado.
+
+¿Cuál es tu colonia?`;
+
+                siguientePaso = "esperando_colonia";
+            }
+            break;
+
+        case "esperando_colonia":
+            if (mensaje.length < 3) {
+                respuesta =
+                    "⚠️ Escribe una colonia válida.";
+            } else {
+                await actualizarDato(
+                    telefono,
+                    "colonia",
+                    mensaje
+                );
+
+                respuesta =
+                    `✅ Colonia registrada.
+
+¿Cuál es tu carrera o profesión?`;
+
+                siguientePaso = "esperando_carrera";
+            }
+            break;
+
+        case "esperando_carrera":
+            if (mensaje.length < 2) {
+                respuesta =
+                    "⚠️ Escribe una carrera o profesión válida.";
+            } else {
+                await actualizarDato(
+                    telefono,
+                    "carrera",
+                    mensaje
+                );
+
+                respuesta =
+                    `✅ Carrera registrada.
+
+Cuéntame tu experiencia laboral.`;
+
+                siguientePaso = "esperando_experiencia";
+            }
+            break;
+
+        case "esperando_experiencia":
+            if (mensaje.length < 5) {
+                respuesta =
+                    "⚠️ Escribe una descripción más detallada de tu experiencia.";
+            } else {
+                await actualizarDato(
+                    telefono,
+                    "experiencia",
+                    mensaje
+                );
+
+                respuesta =
+                    `✅ Experiencia registrada.
+
+¿Tienes licencia de conducir?
+
+1️⃣ Sí
+2️⃣ No`;
+
+                siguientePaso = "perfil_licencia";
+            }
+            break;
+
+        case "perfil_licencia":
+            if (respuestaSiNo[mensaje]) {
+                await actualizarDato(
+                    telefono,
+                    "licencia_conducir",
+                    mensaje === "1"
+                );
+
+                respuesta =
+                    `✅ Licencia registrada: ${respuestaSiNo[mensaje]}
+
+¿Tienes vehículo propio?
+
+1️⃣ Sí
+2️⃣ No`;
+
+                siguientePaso = "perfil_vehiculo";
+            } else {
+                respuesta =
+                    `⚠️ Selecciona una opción válida.
+
+1️⃣ Sí
+2️⃣ No`;
+            }
+            break;
+
+        case "perfil_vehiculo":
+            if (respuestaSiNo[mensaje]) {
+                await actualizarDato(
+                    telefono,
+                    "vehiculo_propio",
+                    mensaje === "1"
+                );
+
+                respuesta =
+                    `✅ Vehículo registrado: ${respuestaSiNo[mensaje]}
+
+¿Tienes disponibilidad para viajar?
+
+1️⃣ Sí
+2️⃣ No`;
+
+                siguientePaso = "perfil_viajar";
+            } else {
+                respuesta =
+                    `⚠️ Selecciona una opción válida.
+
+1️⃣ Sí
+2️⃣ No`;
+            }
+            break;
+
+        case "perfil_viajar":
+            if (respuestaSiNo[mensaje]) {
+                await actualizarDato(
+                    telefono,
+                    "disponibilidad_viajar",
+                    mensaje === "1"
+                );
+
+                respuesta =
+                    `✅ Disponibilidad registrada: ${respuestaSiNo[mensaje]}
+
+¿Cuál es tu horario disponible?
+
+${generarMenu(horario)}`;
+
+                siguientePaso = "perfil_horario";
+            } else {
+                respuesta =
+                    `⚠️ Selecciona una opción válida.
+
+1️⃣ Sí
+2️⃣ No`;
+            }
+            break;
+
+        case "perfil_horario":
+
+            if (horario[mensaje]) {
+
+                await actualizarDato(
+                    telefono,
+                    "horario",
+                    horario[mensaje]
+                );
+
+                respuesta =
+                    `✅ Horario registrado: ${horario[mensaje]}
+
+¿Cuál es tu sueldo esperado?
+
+Ejemplo:
+$15,000 MXN`;
+
+                siguientePaso = "perfil_sueldo";
+            } else {
+                respuesta =
+                    `⚠️ Selecciona una opción válida:
+
+${generarMenu(horario)}`;
+            }
+            break;
+
+        case "perfil_sueldo": {
+            
+            // Validación básica de sueldo
+            const sueldoLimpio = mensaje.replace(/[^0-9]/g, '');
+            if (sueldoLimpio.length < 3) {
+                respuesta =
+                    "⚠️ Escribe un sueldo válido (ejemplo: $15,000 MXN)";
+            } else {
+                await actualizarDato(
+                    telefono,
+                    "sueldo_deseado",
+                    mensaje
+                );
+                // Marcar el perfil como completo
+             await completarPerfil(telefono);
+
+                const folio = await generarFolio(telefono);
+
+                respuesta =
+                    `🎉 ¡Perfil completado exitosamente!
+
+📄 Tu folio: ${folio}
+
+
+Tu perfil está al 100% y ahora tienes mayores oportunidades de encontrar el empleo ideal.
+
+¿Qué deseas hacer?
+
+1️⃣ Buscar vacantes
+2️⃣ Ver mis datos
+3️⃣ Menú principal`;
+
+                siguientePaso = "menu_principal";
+            }
+            break;
+        }
+
+        case "buscar_puesto":
+
+    if (mensaje.length < 2) {
+
+        respuesta =
+        `⚠️ Escribe un puesto válido para buscar.
+
+Ejemplo:
+- Chofer
+- Auxiliar
+- Ventas
+- Administrativo`;
+
+    } else {
+
+
+        const vacantes =
+        await buscarVacantes(mensaje);
+
+
+
+        if(vacantes.length === 0){
+
+
+            respuesta =
+            `😕 No encontré vacantes para:
+
+"${mensaje}"
+
+Puedes intentar con otro puesto.
+
+Escribe otro puesto o:
+
+6️⃣ Menú principal
+7️⃣ Salir`;
+
+
+            // se queda buscando
+            siguientePaso = "buscar_puesto";
+
+
+        }else{
+
+
+            respuesta =
+            `🔎 Encontré estas vacantes:
+
+`;
+
+
+
+            vacantes.forEach((v,index)=>{
+
+
+                respuesta +=
+`
+${index + 1}️⃣ ${v.puesto}
+
+🏢 Empresa:
+${v.empresa}
+
+📍 Ubicación:
+${v.municipio}, ${v.entidad}
+
+💰 Salario:
+$${v.salario}
+
+📚 Experiencia:
+${v.experiencia}
+
+`;
+
+            });
+
+
+
+            respuesta +=
+`
+¿Qué deseas hacer?
+
+1️⃣ Ver detalle de una vacante
+2️⃣ Nueva búsqueda
+6️⃣ Menú principal
+7️⃣ Salir`;
+
+
+
+            siguientePaso = "seleccionar_vacante";
+
+        }
+
+    }
+
+break;
+
+        case "seleccionar_vacante":
+
+            if (mensaje === "2") {
+
+                respuesta =
+                    `🔎 Nueva búsqueda
+
+¿Qué puesto estás buscando?`;
+
+                siguientePaso = "buscar_puesto";
+
+            } else if (!isNaN(mensaje)) {
+
+             
+                respuesta =
+                    `📋 Mostrando detalle de la vacante seleccionada.
+
+¿Qué deseas hacer?
+
+1️⃣ Postularme
+2️⃣ Buscar otra vacante
+6️⃣ Menú principal
+7️⃣ Salir`;
+
+                siguientePaso = "detalle_vacante";
+
+            } else {
+
+                respuesta =
+                    `⚠️ Selecciona una opción válida.`;
+
+            }
+
+        break;
+
+        case "detalle_vacante":
+            switch (mensaje) {
+                case "1":
+                    respuesta =
+                        `✅ ¡Postulación exitosa!
+
+Tu solicitud ha sido enviada. El reclutador se pondrá en contacto contigo.
+
+¿Qué deseas hacer?
+
+1️⃣ Buscar más vacantes
+2️⃣ Menú principal`;
+
+                    siguientePaso = "menu_principal";
+                    break;
+
+                case "2":
+                    respuesta =
+                        `🔎 Nueva búsqueda
+
+¿Qué puesto estás buscando?`;
+
+                    siguientePaso = "buscar_puesto";
+                    break;
+
+                case "3":
+                    respuesta =
+                        `🏢 Menú principal
+
+1️⃣ Buscar vacantes
+2️⃣ Completar mi perfil
+3️⃣ Ver mis datos
+4️⃣ Menú principal`;
+
+                    siguientePaso = "menu_principal";
+                    break;
+
+                default:
+                    respuesta =
+                        `⚠️ Selecciona una opción válida.
+
+1️⃣ Postularme
+2️⃣ Buscar otra vacante
+3️⃣ Menú principal`;
+                    break;
+            }
+            break;
+
+
+        case "consultar_folio": {
+
+            console.log("=================================");
+            console.log("PASO ACTUAL: consultar_folio");
+            console.log("MENSAJE RECIBIDO:", mensaje);
+            console.log("=================================");
+
+            // ==========================================
+            // VALIDAR FOLIO
+            // ==========================================
+
+            const folio = mensaje.trim().toUpperCase();
+
+            console.log("FOLIO PROCESADO:", folio);
+
+            if (!/^SNE-\d{4}-\d{6}$/.test(folio)) {
+
+                respuesta = `
+⚠️ El folio no tiene un formato válido.
+
+Ejemplo:
+
+SNE-2026-000001
+
+Por favor, escribe nuevamente tu folio.
+`;
+
+                siguientePaso = "consultar_folio";
+
+                break;
+            }
+
+            // ==========================================
+            // BUSCAR FOLIO EN BASE DE DATOS
+            // ==========================================
+
+            try {
+
+                console.log("BUSCANDO FOLIO EN BASE DE DATOS...");
+
+                const usuario = await obtenerUsuarioPorFolio(folio);
+
+                console.log("RESULTADO DE CONSULTA:", usuario);
+
+                // ==========================================
+                // FOLIO NO ENCONTRADO
+                // ==========================================
+
+                if (!usuario) {
+
+                    respuesta = `
+❌ No encontramos ningún usuario con el folio:
+
+${folio}
+
+Verifica que hayas escrito correctamente tu folio.
+
+Ejemplo:
+
+SNE-2026-000001
+`;
+
+                    siguientePaso = "consultar_folio";
+
+                    break;
+                }
+
+                // ==========================================
+                // ESTADO DEL PERFIL
+                // ==========================================
+
+                const estadoPerfil = usuario.perfil_completo
+                    ? "✅ Perfil completado"
+                    : "⚠️ Perfil pendiente de completar";
+
+                // ==========================================
+                // MOSTRAR INFORMACIÓN REAL
+                // ==========================================
+
+                respuesta = `
+📄 *INFORMACIÓN DE TU FOLIO*
+
+━━━━━━━━━━━━━━━━━━
+
+🆔 *Folio:*
+${usuario.folio || "No registrado"}
+
+
+👤 *DATOS PERSONALES*
+
+Nombre:
+${usuario.nombre_completo || "No registrado"}
+
+CURP:
+${usuario.curp || "No registrado"}
+
+Fecha de nacimiento:
+${
+    usuario.fecha_nacimiento
+        ? new Date(usuario.fecha_nacimiento).toLocaleDateString("es-MX")
+        : "No registrado"
+}
+
+Sexo:
+${usuario.sexo || "No registrado"}
+
+Teléfono:
+${usuario.telefono || "No registrado"}
+
+Correo:
+${usuario.correo || "No registrado"}
+
+
+📍 *UBICACIÓN*
+
+Municipio:
+${usuario.municipio || "No registrado"}
+
+Colonia:
+${usuario.colonia || "No registrado"}
+
+
+🎓 *INFORMACIÓN ACADÉMICA*
+
+Nivel de estudios:
+${usuario.nivel_estudios || "No registrado"}
+
+Carrera:
+${usuario.carrera || "No registrado"}
+
+
+💼 *INFORMACIÓN LABORAL*
+
+Puesto solicitado:
+${usuario.puesto_solicitado || "No registrado"}
+
+Experiencia:
+${usuario.experiencia || "No registrado"}
+
+Disponibilidad:
+${usuario.disponibilidad || "No registrado"}
+
+Horario:
+${usuario.horario || "No registrado"}
+
+Sueldo deseado:
+${
+    usuario.sueldo_deseado
+        ? `$${usuario.sueldo_deseado}`
+        : "No registrado"
+}
+
+
+🚗 *OTROS DATOS*
+
+Licencia de conducir:
+${usuario.licencia_conducir ? "Sí" : "No"}
+
+Vehículo propio:
+${usuario.vehiculo_propio ? "Sí" : "No"}
+
+Disponibilidad para viajar:
+${usuario.disponibilidad_viajar ? "Sí" : "No"}
+
+Recibir vacantes:
+${usuario.recibir_vacantes ? "Sí" : "No"}
+
+
+📋 *ESTADO DEL PERFIL*
+
+${estadoPerfil}
+
+━━━━━━━━━━━━━━━━━━
+
+¿Qué deseas hacer?
+
+1️⃣ Completar mi perfil
+2️⃣ Buscar vacantes
+3️⃣ Menú principal
+`;
+
+                // ==========================================
+                // ESPERAR OPCIÓN DEL USUARIO
+                // ==========================================
+
+                siguientePaso = "folio_opciones";
+
+                console.log("SIGUIENTE PASO:", siguientePaso);
+
+            } catch (error) {
+
+                console.error("❌ ERROR AL CONSULTAR FOLIO:", error);
+
+                respuesta = `
+❌ Ocurrió un error al consultar tu folio.
+
+Por favor, intenta nuevamente más tarde.
+`;
+
+                siguientePaso = "menu_principal";
+            }
+
+            break;
+        }
+
+        // =====================================================
+        // OPCIONES DESPUÉS DE CONSULTAR EL FOLIO
+        // =====================================================
+        case "folio_opciones": {
+
+            console.log("PASO: folio_opciones");
+            console.log("MENSAJE:", mensaje);
+            console.log("TIPO:", typeof mensaje);
+            console.log("TRIM:", JSON.stringify(mensaje.trim()));
+
+            switch (mensaje.trim()) {
+
+                // ==========================================
+                // 1️⃣ COMPLETAR PERFIL
+                // ==========================================
+                case "1": {
+
+                    try {
+
+                        console.log("=================================");
+                        console.log("VERIFICANDO PERFIL");
+                        console.log("TELÉFONO:", telefono);
+                        console.log("=================================");
+
+                        const perfilCompleto = await verificarPerfilCompleto(telefono);
+
+                        console.log("RESULTADO PERFIL:", perfilCompleto);
+
+                        if (perfilCompleto === true) {
+
+                            respuesta = `
+✅ *Tu perfil ya está completo.*
+
+No necesitas registrar más información.
+
+¿Qué deseas hacer?
+
+1️⃣ Buscar vacantes
+2️⃣ Menú principal
+`;
+
+                            siguientePaso = "perfil_ya_completo";
+
+                        } else {
+
+                            respuesta = `
+⚠️ *Tu perfil todavía no está completo.*
+
+Aún tienes información pendiente por registrar.
+
+Vamos a continuar con el registro de tus datos.
+`;
+
+                            siguientePaso = "perfil_completo";
+                        }
+
+                    } catch (error) {
+
+                        console.error("ERROR AL REVISAR PERFIL:", error);
+
+                        respuesta = `
+❌ Ocurrió un error al revisar tu perfil.
+
+Por favor, intenta nuevamente.
+`;
+
+                        siguientePaso = "menu_principal";
+                    }
+
+                    break;
+                }
+
+                // ==========================================
+                // 2️⃣ BUSCAR VACANTES
+                // FIX PRINCIPAL: "buscarVacantesPorPuesto" regresa
+                // un STRING ya armado, no un objeto con .usuario /
+                // .vacantes. El código viejo siempre entraba a la
+                // rama de error porque un string nunca tiene
+                // ".usuario". Ahora se usa el texto directamente,
+                // igual que en "case buscar_vacantes".
+                // ==========================================
+                case "2": {
+
+                    console.log("=================================");
+                    console.log("🔥 OPCIÓN 2: BUSCAR VACANTES");
+                    console.log("TELÉFONO:", telefono);
+                    console.log("=================================");
+
+                    try {
+
+                        const textoVacantes = await buscarVacantesPorPuesto(telefono);
+
+                        respuesta = `${textoVacantes}
+
+¿Qué deseas hacer?
+
+1️⃣ Buscar nuevamente
+2️⃣ Menú principal
+`;
+
+                        siguientePaso = "opciones_vacantes";
+
+                        console.log("SIGUIENTE PASO:", siguientePaso);
+
+                    } catch (error) {
+
+                        console.error("❌ ERROR AL BUSCAR VACANTES:", error);
+
+                        respuesta = `
+❌ Ocurrió un error al buscar vacantes.
+
+Por favor, intenta nuevamente más tarde.
+`;
+
+                        siguientePaso = "menu_principal";
+                    }
+
+                    break;
+                }
+
+                // ==========================================
+                // 3️⃣ MENÚ PRINCIPAL
+                // ==========================================
+                case "3": {
+
+                    respuesta = `
+📋 Regresando al menú principal...
+`;
+
+                    siguientePaso = "menu_principal";
+
+                    break;
+                }
+
+                default: {
+
+                    console.log("❌❌❌ ENTRÓ AL DEFAULT ❌❌❌");
+                    console.log("VALOR:", JSON.stringify(mensaje.trim()));
+
+                    respuesta = `
+⚠️ Opción no válida.
+
+Selecciona una opción:
+
+1️⃣ Completar mi perfil
+2️⃣ Buscar vacantes
+3️⃣ Menú principal
+`;
+
+                    siguientePaso = "folio_opciones";
+
+                    break;
+                }
+            }
+
+            break;
+        }
+
+        // =====================================================
+        // BUSCAR VACANTES
+        // =====================================================
+        case "buscar_vacantes": {
+
+            try {
+
+                console.log("=================================");
+                console.log("BUSCANDO VACANTES");
+                console.log("TELÉFONO:", telefono);
+                console.log("=================================");
+
+                const textoVacantes = await buscarVacantesPorPuesto(telefono);
+
+                respuesta = `${textoVacantes}
+
+¿Qué deseas hacer?
+
+1️⃣ Buscar nuevamente
+2️⃣ Menú principal
+`;
+
+                siguientePaso = "opciones_vacantes";
+
+            } catch (error) {
+
+                console.error("ERROR AL BUSCAR VACANTES:", error);
+
+                respuesta = `
+❌ Ocurrió un error al buscar vacantes.
+
+Por favor, intenta nuevamente más tarde.
+`;
+
+                siguientePaso = "menu_principal";
+            }
+
+            break;
+        }
+
+        // =====================================================
+        // OPCIONES DE VACANTES
+        // =====================================================
+        case "opciones_vacantes": {
+
+            switch (mensaje.trim()) {
+
+                case "1": {
+
+                    respuesta = `
+🔎 Buscando nuevamente vacantes relacionadas con tu perfil...
+`;
+
+                    siguientePaso = "buscar_vacantes";
+
+                    break;
+                }
+
+                case "2": {
+
+                    respuesta = `
+📋 Regresando al menú principal...
+`;
+
+                    siguientePaso = "menu_principal";
+
+                    break;
+                }
+
+                default: {
+
+                    respuesta = `
+⚠️ Opción no válida.
+
+Selecciona:
+
+1️⃣ Buscar nuevamente
+2️⃣ Menú principal
+`;
+
+                    siguientePaso = "opciones_vacantes";
+
+                    break;
+                }
+            }
+
+            break;
+        }
+
+        // =====================================================
+        // DEFAULT DEL SWITCH PRINCIPAL
+        // =====================================================
+        default: {
+
+            respuesta = `
+No entendí tu mensaje.
+
+Por favor, selecciona una opción válida.
+`;
+
+            break;
+        }
+
+    } // <-- CIERRE DEL SWITCH PRINCIPAL
+
+    return {
+        respuesta,
+        siguientePaso
+    };
+}
+
+module.exports = {
+    procesarMensaje
+};
+
+
+
+CHATBOT LIMPIO 
+const {
+    obtenerSesion,
+    crearSesion,
+    actualizarPaso,
+    aumentarIntento,
+    reiniciarIntentos,
+    reiniciarSesion,
+    actualizarDatosTemporales
+} = require("./sesion.service");
+
+const {
+    procesarMenu
+} = require("../flows/menu.flow");
+
+const {
+    procesarRegistro
+} = require("../flows/registro.flow");
+
+const {
+    procesarActualizacion
+} = require("../flows/actualizacion.flow");
+
+const {
+    procesarVacantes
+} = require("../flows/vacantes.flow");
+
+const {
+    procesarPerfil
+} = require("../flows/perfil.flow");
+
+const {
+    procesarFolio
+} = require("../flows/folio.flow");
+
+const {
+    validarNombre,
+    validarCURP,
+    convertirFecha,
+    validarCorreo
+} = require("../utils/validaciones");
+
+const {
+    sexo,
+    nivelEstudios,
+    disponibilidad,
+    respuestaSiNo,
+    horario,
+    municipios,
+    categoriasCarrera,
+    carreras
+} = require("../utils/catalogos");
+
+const {
+    generarMenu
+} = require("../utils/menu");
+
+const {
+    actualizarDato,
+    generarFolio,
+    completarPerfil,
+    obtenerBuscadorPorTelefono,
+    obtenerUsuarioPorFolio,
+    buscarVacantesPorPuesto,
+    verificarPerfilCompleto
+} = require("./buscador.service");
+
+const {
+    buscarVacantes
+} = require("./vacante.service");
+
+async function procesarMensaje(
+    sesion,
+    mensaje,
+    telefono
+) {
+    let respuesta = "";
+    let siguientePaso = sesion.paso_actual;
+
+
+    mensaje = String(mensaje ?? "").trim();
+
+    // comandos generales
+
+    const comando = mensaje.toLowerCase();
+
+
+    if(
+        comando === "7" ||
+        comando === "salir" ||
+        comando === "cancelar"
+    ){
+
+        await reiniciarSesion(telefono);
+
+
+        return {
+            respuesta:
+            "👋 Gracias por utilizar el Asistente SNE.\nHasta pronto.",
+            siguientePaso:"finalizado"
+        };
+
+    }
+
+    if(
+        comando === "6" ||
+        comando === "menu" ||
+        comando === "inicio"
+    ){
+
+        return {
+            respuesta:
+`👋 Bienvenido al Asistente SNE
+
+¿Qué deseas hacer?
+
+1️⃣ Buscar vacantes
+2️⃣ Registrar mis datos
+3️⃣ Actualizar mis datos
+4️⃣ Consultar mi folio
+5️⃣ Hablar con un asesor
+6️⃣ Menú principal
+7️⃣ Salir`,
+            siguientePaso:"menu"
+        };
+
+    }
+
+
+    switch (sesion.paso_actual) {
+        case "inicio":
+            respuesta =
+                `👋 Hola, soy el asistente del SNE.
+
+¿En qué puedo ayudarte?
+
+1️⃣ Buscar vacantes
+2️⃣ Registrar mis datos
+3️⃣ Actualizar mis datos
+4️⃣ Consultar mi folio
+5️⃣ Hablar con un asesor
+6️⃣ Menú principal
+7️⃣ Salir`;
+
+            siguientePaso = "menu";
+            break;
+
+        case "menu": {
+
+    const resultado =
+        await procesarMenu(mensaje, telefono);
+
+    respuesta = resultado.respuesta;
+    siguientePaso = resultado.siguientePaso;
+
+    break;
+}
+case "perfil_completo":
+case "seleccionar_actualizacion":
+case "actualizar_correo":
+case "actualizar_municipio":
+case "actualizar_categoria_carrera":
+case "actualizar_carrera":
+case "actualizar_colonia":
+case "actualizar_experiencia":
+case "actualizar_puesto":
+case "actualizar_sueldo":
+case "actualizar_horario": {
+
+    const resultado = await procesarActualizacion(
+        sesion,
+        mensaje,
+        telefono
+    );
+
+    respuesta = resultado.respuesta;
+    siguientePaso = resultado.siguientePaso;
+
+    break;
+}
+
+case "esperando_nombre":
+case "esperando_curp":
+case "esperando_fecha":
+case "esperando_sexo":
+case "esperando_municipio":
+case "esperando_estudios":
+case "esperando_puesto": {
+
+    const resultado =
+        await procesarRegistro(
+            sesion,
+            mensaje,
+            telefono
+        );
+
+    respuesta =
+        resultado.respuesta;
+
+    siguientePaso =
+        resultado.siguientePaso;
+
+    break;
+}
+
+        case "finalizado":
+            respuesta =
+                `✅ El registro ya fue completado.
+
+Gracias por utilizar el asistente del SNE.`;
+            break;
+
+        case "menu_principal":
+            switch (mensaje) {
+                case "1":
+                    respuesta =
+                        `🔎 Buscar vacantes
+
+¿Qué puesto estás buscando?`;
+
+                    siguientePaso = "buscar_puesto";
+                    break;
+
+                case "2":
+                    respuesta =
+                        `Completar tu perfil te dará más oportunidades.
+
+Podrás agregar:
+
+✅ Experiencia laboral
+✅ Carrera
+✅ Correo
+✅ Colonia
+✅ Licencia
+✅ Vehículo
+✅ Horario
+✅ Sueldo esperado
+
+¿Deseas continuar?
+
+1️⃣ Sí
+2️⃣ No`;
+
+                    siguientePaso = "confirmar_completar_perfil";
+                    break;
+
+                case "3":
+                    respuesta =
+                        `📄 Consulta de información.
+
+Escribe tu folio.
+
+Ejemplo:
+
+SNE-2026-000001`;
+
+                    siguientePaso = "consultar_folio";
+                    break;
+
+                case "4":
+                    respuesta =
+                        `🏢 Menú principal
+
+1️⃣ Buscar vacantes
+2️⃣ Completar mi perfil
+3️⃣ Ver mis datos
+4️⃣ Menú principal`;
+
+                    siguientePaso = "inicio"; 
+                    break;
+
+                default:
+                    respuesta =
+                        `⚠️ Selecciona una opción válida.
+
+1️⃣ Buscar vacantes
+2️⃣ Completar mi perfil
+3️⃣ Ver mis datos
+4️⃣ Menú principal`;
+                    break;
+            }
+            break;
+            
+
+        case "confirmar_completar_perfil":
+case "esperando_correo":
+case "esperando_colonia":
+case "esperando_carrera":
+case "esperando_experiencia":
+case "perfil_licencia":
+case "perfil_vehiculo":
+case "perfil_viajar":
+case "perfil_horario":
+case "perfil_sueldo": {
+
+    const resultado =
+        await procesarPerfil(
+            sesion,
+            mensaje,
+            telefono
+        );
+
+    respuesta = resultado.respuesta;
+    siguientePaso = resultado.siguientePaso;
+
+    break;
+}
+
+
+
+        case "buscar_puesto":
+case "seleccionar_vacante":
+case "detalle_vacante": {
+
+    const resultado =
+        await procesarVacantes(
+            sesion,
+            mensaje,
+            telefono
+        );
+
+    respuesta = resultado.respuesta;
+    siguientePaso = resultado.siguientePaso;
+
+    break;
+}
+
+        case "consultar_folio":
+case "folio_opciones":
+case "buscar_vacantes":
+case "opciones_vacantes":
+case "perfil_ya_completo": {
+
+    const resultado =
+        await procesarFolio(
+            sesion,
+            mensaje,
+            telefono
+        );
+
+    respuesta = resultado.respuesta;
+    siguientePaso = resultado.siguientePaso;
+
+    break;
+}
+
+default:
+            respuesta = "⚠️ No entendí tu mensaje.";
+            siguientePaso = "menu";
+            break;
+    }
+
+    return {
+        respuesta,
+        siguientePaso
+    };
+
+}
+
+module.exports = {
+    procesarMensaje
+};
+
+
+const {
+    reiniciarSesion
+} = require("./sesion.service");
+
+
+const {
+    procesarMenu
+} = require("../flows/menu.flow");
+
+
+const {
+    procesarRegistro
+} = require("../flows/registro.flow");
+
+
+const {
+    procesarActualizacion
+} = require("../flows/actualizacion.flow");
+
+
+const {
+    procesarVacantes
+} = require("../flows/vacantes.flow");
+
+
+const {
+    procesarPerfil
+} = require("../flows/perfil.flow");
+
+
+const {
+    procesarFolio
+} = require("../flows/folio.flow");
+
+
+async function procesarMensaje(
+    sesion,
+    mensaje,
+    telefono
+) {
+
+    let respuesta = "";
+
+    let siguientePaso =
+        sesion.paso_actual;
+
+
+    // ==========================================
+    // NORMALIZAR MENSAJE
+    // ==========================================
+
+    mensaje =
+        String(mensaje ?? "").trim();
+
+
+    const comando =
+        mensaje.toLowerCase();
+
+
+    // ==========================================
+    // COMANDO: SALIR
+    // ==========================================
+
+    if (
+        comando === "7" ||
+        comando === "salir" ||
+        comando === "cancelar"
+    ) {
+
+        await reiniciarSesion(telefono);
+
+        return {
+            respuesta:
+`👋 Gracias por utilizar el Asistente SNE.
+
+Hasta pronto.`,
+            siguientePaso: "finalizado"
+        };
+
+    }
+
+
+    // ==========================================
+    // COMANDO: MENÚ PRINCIPAL
+    // ==========================================
+
+    if (
+        comando === "6" ||
+        comando === "menu" ||
+        comando === "inicio"
+    ) {
+
+        return {
+            respuesta:
+`👋 Bienvenido al Asistente SNE
+
+¿Qué deseas hacer?
+
+1️⃣ Buscar vacantes
+2️⃣ Registrar mis datos
+3️⃣ Actualizar mis datos
+4️⃣ Consultar mi folio
+5️⃣ Hablar con un asesor
+6️⃣ Menú principal
+7️⃣ Salir`,
+            siguientePaso: "menu"
+        };
+
+    }
+
+
+    // ==========================================
+    // SWITCH PRINCIPAL
+    // ==========================================
+
+    switch (sesion.paso_actual) {
+
+
+        // ==========================================
+        // INICIO
+        // ==========================================
+
+        case "inicio":
+
+            respuesta =
+`👋 Hola, soy el asistente del SNE.
+
+¿En qué puedo ayudarte?
+
+1️⃣ Buscar vacantes
+2️⃣ Registrar mis datos
+3️⃣ Actualizar mis datos
+4️⃣ Consultar mi folio
+5️⃣ Hablar con un asesor
+6️⃣ Menú principal
+7️⃣ Salir`;
+
+            siguientePaso = "menu";
+
+            break;
+
+
+        // ==========================================
+        // MENÚ
+        // ==========================================
+
+        case "menu": {
+
+            const resultado =
+                await procesarMenu(
+                    mensaje,
+                    telefono
+                );
+
+            respuesta =
+                resultado.respuesta;
+
+            siguientePaso =
+                resultado.siguientePaso;
+
+            break;
+        }
+
+
+        // ==========================================
+        // REGISTRO
+        // ==========================================
+
+        case "esperando_nombre":
+        case "esperando_curp":
+        case "esperando_fecha":
+        case "esperando_sexo":
+        case "esperando_municipio":
+        case "esperando_estudios":
+        case "esperando_puesto": {
+
+            const resultado =
+                await procesarRegistro(
+                    sesion,
+                    mensaje,
+                    telefono
+                );
+
+            respuesta =
+                resultado.respuesta;
+
+            siguientePaso =
+                resultado.siguientePaso;
+
+            break;
+        }
+
+
+        // ==========================================
+        // ACTUALIZACIÓN DE DATOS
+        // ==========================================
+
+        case "perfil_completo":
+        case "seleccionar_actualizacion":
+        case "actualizar_correo":
+        case "actualizar_municipio":
+        case "actualizar_categoria_carrera":
+        case "actualizar_carrera":
+        case "actualizar_colonia":
+        case "actualizar_experiencia":
+        case "actualizar_puesto":
+        case "actualizar_sueldo":
+        case "actualizar_horario": {
+
+            const resultado =
+                await procesarActualizacion(
+                    sesion,
+                    mensaje,
+                    telefono
+                );
+
+            respuesta =
+                resultado.respuesta;
+
+            siguientePaso =
+                resultado.siguientePaso;
+
+            break;
+        }
+
+
+        // ==========================================
+        // COMPLETAR PERFIL
+        // ==========================================
+
+        case "confirmar_completar_perfil":
+        case "esperando_correo":
+        case "esperando_colonia":
+        case "esperando_carrera":
+        case "esperando_experiencia":
+        case "perfil_licencia":
+        case "perfil_vehiculo":
+        case "perfil_viajar":
+        case "perfil_horario":
+        case "perfil_sueldo": {
+
+            const resultado =
+                await procesarPerfil(
+                    sesion,
+                    mensaje,
+                    telefono
+                );
+
+            respuesta =
+                resultado.respuesta;
+
+            siguientePaso =
+                resultado.siguientePaso;
+
+            break;
+        }
+
+
+        // ==========================================
+        // VACANTES
+        // ==========================================
+
+        case "buscar_puesto":
+        case "seleccionar_vacante":
+        case "detalle_vacante": {
+
+            const resultado =
+                await procesarVacantes(
+                    sesion,
+                    mensaje,
+                    telefono
+                );
+
+            respuesta =
+                resultado.respuesta;
+
+            siguientePaso =
+                resultado.siguientePaso;
+
+            break;
+        }
+
+
+        // ==========================================
+        // FOLIO
+        // ==========================================
+
+        case "consultar_folio":
+        case "folio_opciones":
+        case "buscar_vacantes":
+        case "opciones_vacantes":
+        case "perfil_ya_completo": {
+
+            const resultado =
+                await procesarFolio(
+                    sesion,
+                    mensaje,
+                    telefono
+                );
+
+            respuesta =
+                resultado.respuesta;
+
+            siguientePaso =
+                resultado.siguientePaso;
+
+            break;
+        }
+
+
+        // ==========================================
+        // FINALIZADO
+        // ==========================================
+
+        case "finalizado":
+
+            respuesta =
+`👋 Esta conversación ha finalizado.
+
+Escribe "inicio" para volver a comenzar.`;
+
+            siguientePaso =
+                "finalizado";
+
+            break;
+
+
+        // ==========================================
+        // DEFAULT
+        // ==========================================
+
+        default:
+
+            respuesta =
+`⚠️ No entendí tu mensaje.
+
+Por favor, escribe "inicio" para volver al menú principal.`;
+
+            siguientePaso =
+                "menu";
+
+            break;
+
+    }
+
+
+    // ==========================================
+    // RESPUESTA FINAL
+    // ==========================================
+
+    return {
+        respuesta,
+        siguientePaso
+    };
+
+}
+
+
+module.exports = {
+    procesarMensaje
+};
+
+
+ Chatbot Analytics Dashboard UI [1, 
+ 2]WhatsApp CRM Dashboard 
+ [3]Customer Support AI DashboardConversational AI Analytics 
+ [1]¿
+
+
+ Vacantes
+
+Aquí administraremos las vacantes que ya tienes en PostgreSQL.
+
+Podremos mostrar:
+
+Puesto
+Empresa
+Municipio
+Salario
+Experiencia
+Fecha de publicación
+Estado
+
+Y tener acciones como:
+
+Ver vacante.
+Buscar.
+Filtrar.
+Agregar vacante.
+Editar vacante.
+Desactivar vacante.
+
+Más adelante incluso podemos relacionar:
+
+PERSONA
+   ↓
+PUESTO SOLICITADO
+   ↓
+VACANTES COMPATIBLES
+
+Esto sería muy útil porque el sistema podría 
+mostrar automáticamente qué personas coinciden 
+con determinadas vacantes.
+
+Siguiente: ✏️ Editar vacante
+
+Ahora podemos hacer que al presionar Editar se abra un formulario/modal con los datos actuales:
+
+┌─────────────────────────────────────────┐
+│ Editar vacante                      ✕   │
+├─────────────────────────────────────────┤
+│                                         │
+│ Puesto                                   │
+│ [ ASESORIA DE CREDITO GRUPAL          ] │
+│                                         │
+│ Empresa                                  │
+│ [ FINANCIERA CAFI (PALENQUE)          ] │
+│                                         │
+│ Municipio                                │
+│ [ BENEMERITO DE LAS AMERICAS          ] │
+│                                         │
+│ Salario                                  │
+│ [ 9583                              ]    │
+│                                         │
+│ Experiencia                              │
+│ [ 6 M a 1 año                        ]   │
+│                                         │
+│ Estado                                   │
+│ [ Activa ▼                            ]   │
+│                                         │
+│             [Cancelar] [Guardar cambios] │
+└─────────────────────────────────────────┘
+
+Y al guardar:
+
+React
+  ↓
+PUT /api/vacantes/:id
+  ↓
+Backend
+  ↓
+PostgreSQL
+  ↓
+UPDATE vacantes
+  ↓
+React actualiza la tabla
+
+Sin recargar la página, igual que hicimos con activar/desactivar.
+
+Después de Editar, podemos continuar con Filtros avanzados y finalmente con la relación:
+
+PERSONA
+   ↓
+puesto_solicitado
+   ↓
+VACANTES
+   ↓
+coincidencia
+   ↓
+"Vacantes recomendadas para esta persona"
+
+Ese último punto puede quedar bastante interesante para el sistema SNE.
+
+
+o no lo haría como una página simple de opciones. Para tu sistema quedaría mejor dividido en módulos.
+
+⚙️ Configuraciones
+
+Podríamos tener algo así:
+
+1. 👤 Mi perfil / Administrador
+
+Para los datos del usuario que administra el sistema.
+
+Nombre
+Correo electrónico
+Usuario
+Contraseña
+Foto de perfil
+Cambiar contraseña
+
+Ejemplo:
+
+👤 PERFIL DEL ADMINISTRADOR
+
+
+Nombre:        Isaac Ruiz
+Correo:        administrador@sne.com
+Rol:           Administrador
+
+
+[ Editar perfil ]   [ Cambiar contraseña ]
+2. 🏢 Configuración del sistema
+
+Datos generales que aparecen dentro del sistema.
+
+Nombre del sistema
+Nombre de la institución
+Año
+Estado
+Municipio
+Mensaje de bienvenida del chatbot
+
+Por ejemplo:
+
+🏢 INFORMACIÓN DEL SISTEMA
+
+
+Nombre:
+Sistema Nacional de Empleo
+
+
+Estado:
+Chiapas
+
+
+Mensaje de bienvenida:
+Hola, soy el asistente virtual del Sistema Nacional de Empleo.
+¿En qué puedo ayudarte?
+
+
+[ Guardar cambios ]
+
+Esto puede ser útil porque tu chatbot actualmente tiene mensajes y flujos que podrían configurarse sin modificar directamente el código.
+
+3. 💬 Configuración del chatbot
+
+Esta sección encaja muy bien con tu proyecto.
+
+Podríamos controlar:
+
+Activar/desactivar chatbot
+Mensaje de bienvenida
+Mensaje fuera de horario
+Número máximo de intentos
+Tiempo de expiración de sesión
+Activar registro de nuevos usuarios
+Activar búsqueda de vacantes
+Activar actualización de datos
+
+Ejemplo:
+
+🤖 CHATBOT
+
+
+Estado del chatbot          [ 🟢 Activo ]
+
+
+Permitir registro           [ ✓ ]
+
+
+Permitir búsqueda           [ ✓ ]
+
+
+Permitir actualizar datos   [ ✓ ]
+
+
+Máximo de intentos          [ 3 ]
+
+
+Tiempo de sesión            [ 30 minutos ]
+4. 📋 Catálogos del sistema
+
+Esta para mí sería una de las más importantes.
+
+Actualmente tienes varios datos que manejas mediante catálogos:
+
+Municipios
+Nivel de estudios
+Carreras
+Categorías de carreras
+Horarios
+Disponibilidad
+Licencias
+etc.
+
+En lugar de tener todo solamente dentro de:
+
+catalogos.js
+
+podríamos posteriormente administrar esos datos desde el panel.
+
+Por ejemplo:
+
+📋 CATÁLOGOS
+
+
+┌──────────────────────────┐
+│ 📍 Municipios        >   │
+├──────────────────────────┤
+│ 🎓 Nivel de estudios >   │
+├──────────────────────────┤
+│ 📚 Carreras          >   │
+├──────────────────────────┤
+│ 🕐 Horarios          >   │
+├──────────────────────────┤
+│ 💼 Áreas laborales   >   │
+└──────────────────────────┘
+
+Entonces un administrador podría agregar un municipio sin modificar código.
+
+5. 🔔 Notificaciones
+
+Aquí podríamos configurar alertas del sistema.
+
+Por ejemplo:
+
+Notificar nuevos registros
+Alertar cuando un perfil está incompleto
+Alertar vacantes sin candidatos
+Alertar personas sin vacantes compatibles
+Mostrar notificaciones en el dashboard
+🔔 NOTIFICACIONES
+
+
+☑ Notificar nuevos buscadores
+
+
+☑ Alertar perfiles incompletos
+
+
+☑ Alertar personas sin vacantes
+
+
+☑ Alertar vacantes sin candidatos
+
+Esto conecta bastante bien con las alertas que ya generamos en Reportes.
+
+6. 🔐 Seguridad
+
+Más adelante, si agregamos autenticación real:
+
+Usuarios del sistema
+Roles
+Permisos
+Cambiar contraseña
+Último acceso
+Cerrar sesiones
+
+Ejemplo:
+
+🔐 SEGURIDAD
+
+
+Usuarios registrados: 3
+
+
+Administrador
+Gestor de vacantes
+Consultor
+
+
+[ Administrar usuarios ]
+Mi propuesta para empezar
+
+Para no hacer una página enorme desde el inicio, yo haría Configuraciones con estas 5 tarjetas principales:
+
+⚙️ CONFIGURACIÓN DEL SISTEMA
+
+
+Personaliza y administra las opciones generales del sistema.
+
+
+
+
+┌──────────────────┐  ┌──────────────────┐
+│ 👤               │  │ 🤖               │
+│ Mi perfil        │  │ Chatbot          │
+│                  │  │                  │
+│ Administra tus   │  │ Configura el     │
+│ datos y acceso   │  │ asistente        │
+└──────────────────┘  └──────────────────┘
+
+
+
+
+┌──────────────────┐  ┌──────────────────┐
+│ 📋               │  │ 🔔               │
+│ Catálogos        │  │ Notificaciones   │
+│                  │  │                  │
+│ Municipios,      │  │ Configura las    │
+│ carreras, etc.   │  │ alertas          │
+└──────────────────┘  └──────────────────┘
+
+
+
+
+┌────────────────────────────────────────┐
+│ 🏢 CONFIGURACIÓN DEL SISTEMA           │
+│                                        │
+│ Información general y preferencias     │
+│ del Sistema Nacional de Empleo         │
+└────────────────────────────────────────┘
+Mi recomendación
+
+Primero hagamos únicamente el frontend de Configuraciones, con estas tarjetas y un diseño igual de moderno al que hicimos en Reportes. Después hacemos que cada tarjeta abra su propia sección y, poco a poco, conectamos lo que realmente necesite base de datos.
+
+Así no complicamos todavía el backend y podemos dejar la estructura visual lista.
+
+///////margin-top: 40px;///
+
+const {
+    obtenerBuscadorPorTelefono
+} = require("../services/buscador.service");
+
+async function procesarMenu(mensaje, telefono) {
+
+    let respuesta = "";
+    let siguientePaso = "menu";
+
+    switch (mensaje) {
+
+        // ==========================================
+        // 1️⃣ BUSCAR VACANTES
+        // ==========================================
+        case "1":
+
+            respuesta = `
+🔎 Buscar vacantes
+
+¿Qué puesto estás buscando?
+`;
+
+            siguientePaso = "buscar_puesto";
+
+            break;
+
+
+        // ==========================================
+        // 2️⃣ REGISTRAR DATOS
+        // ==========================================
+        case "2": {
+
+            const usuario =
+                await obtenerBuscadorPorTelefono(telefono);
+
+            if (usuario && usuario.perfil_completo) {
+
+                respuesta = `
+✅ Ya tienes un perfil registrado.
+
+📄 Folio: ${usuario.folio}
+
+No es necesario volver a capturar tus datos.
+
+¿Qué deseas hacer?
+
+1️⃣ Buscar vacantes
+2️⃣ Ver mis datos
+3️⃣ Actualizar mis datos
+4️⃣ Salir
+`;
+
+                siguientePaso = "perfil_completo";
+
+            } else {
+
+                respuesta = `
+Perfecto 👍
+
+Vamos a registrar tus datos.
+
+¿Cuál es tu nombre completo?
+`;
+
+                siguientePaso = "esperando_nombre";
+            }
+
+            break;
+        }
+
+
+        // ==========================================
+        // 3️⃣ ACTUALIZAR DATOS
+        // ==========================================
+        case "3": {
+
+            const usuario =
+                await obtenerBuscadorPorTelefono(telefono);
+
+            if (!usuario) {
+
+                respuesta = `
+⚠️ No encontramos ningún registro.
+
+Selecciona la opción 2 para registrarte.
+`;
+
+                siguientePaso = "menu";
+
+            } else {
+
+                respuesta = `
+✏️ ¿Qué dato deseas actualizar?
+
+1️⃣ Correo
+2️⃣ Municipio
+3️⃣ Colonia
+4️⃣ Carrera
+5️⃣ Experiencia
+0️⃣ Puesto solicitado
+9️⃣ Sueldo deseado
+🔟 Horario
+`;
+
+                siguientePaso = "seleccionar_actualizacion";
+            }
+
+            break;
+        }
+
+
+        // ==========================================
+        // 4️⃣ CONSULTAR FOLIO
+        // ==========================================
+        case "4":
+
+            respuesta = `
+🔎 Consultar folio.
+
+Escribe tu folio.
+`;
+
+            siguientePaso = "consultar_folio";
+
+            break;
+
+
+        // ==========================================
+        // 5️⃣ ASESOR
+        // ==========================================
+        case "5":
+
+            respuesta = `
+Un asesor se pondrá en contacto contigo.
+`;
+
+            siguientePaso = "asesor";
+
+            break;
+
+
+        // ==========================================
+        // 6️⃣ MENÚ PRINCIPAL
+        // ==========================================
+        case "6":
+
+            respuesta = `
+👋 Menú principal
+
+1️⃣ Buscar vacantes
+2️⃣ Registrar mis datos
+3️⃣ Actualizar mis datos
+4️⃣ Consultar mi folio
+5️⃣ Hablar con un asesor
+6️⃣ Menú principal
+7️⃣ Salir
+`;
+
+            siguientePaso = "menu";
+
+            break;
+
+
+        // ==========================================
+        // 7️⃣ SALIR
+        // ==========================================
+        case "7":
+
+            respuesta = `
+👋 Gracias por utilizar el asistente SNE.
+`;
+
+            siguientePaso = "finalizado";
+
+            break;
+
+
+        // ==========================================
+        // OPCIÓN NO VÁLIDA
+        // ==========================================
+        default:
+
+            respuesta = `
+⚠️ Selecciona una opción válida.
+
+1️⃣ Buscar vacantes
+2️⃣ Registrar mis datos
+3️⃣ Actualizar mis datos
+4️⃣ Consultar mi folio
+5️⃣ Hablar con un asesor
+6️⃣ Menú principal
+7️⃣ Salir
+`;
+
+            siguientePaso = "menu";
+
+            break;
+    }
+
+    return {
+        respuesta,
+        siguientePaso
+    };
+}
+
+
+module.exports = {
+    procesarMenu
+};
+
+
+const {
+    reiniciarSesion
+} = require("./sesion.service");
+
+
+const {
+    procesarMenu
+} = require("../flows/menu.flow");
+
+
+const {
+    procesarRegistro
+} = require("../flows/registro.flow");
+
+
+const {
+    procesarActualizacion
+} = require("../flows/actualizacion.flow");
+
+
+const {
+    procesarVacantes
+} = require("../flows/vacantes.flow");
+
+
+const {
+    procesarPerfil
+} = require("../flows/perfil.flow");
+
+
+const {
+    procesarFolio
+} = require("../flows/folio.flow");
+
+
+async function procesarMensaje(
+    sesion,
+    mensaje,
+    telefono
+) {
+
+    let respuesta = "";
+
+    let siguientePaso =
+        sesion.paso_actual;
+
+    mensaje =
+        String(mensaje ?? "").trim();
+
+
+    const comando =
+        mensaje.toLowerCase();
+
+    if (
+        comando === "7" ||
+        comando === "salir" ||
+        comando === "cancelar"
+    ) {
+
+        await reiniciarSesion(telefono);
+
+        return {
+            respuesta:
+`👋 Gracias por utilizar el Asistente SNE.
+
+Hasta pronto.`,
+            siguientePaso: "finalizado"
+        };
+
+    }
+
+    if (
+        comando === "6" ||
+        comando === "menu" ||
+        comando === "inicio"
+    ) {
+
+        return {
+            respuesta:
+`👋 Bienvenido al Asistente SNE
+
+¿Qué deseas hacer?
+
+1️⃣ Buscar vacantes
+2️⃣ Registrar mis datos
+3️⃣ Actualizar mis datos
+4️⃣ Consultar mi folio
+5️⃣ Hablar con un asesor
+6️⃣ Menú principal
+7️⃣ Salir`,
+            siguientePaso: "menu"
+        };
+
+    }
+
+    switch (sesion.paso_actual) {
+
+
+        case "inicio":
+
+            respuesta =
+`👋 Hola, soy el asistente del SNE.
+
+¿En qué puedo ayudarte?
+
+1️⃣ Buscar vacantes
+2️⃣ Registrar mis datos
+3️⃣ Actualizar mis datos
+4️⃣ Consultar mi folio
+5️⃣ Hablar con un asesor
+6️⃣ Menú principal
+7️⃣ Salir`;
+
+            siguientePaso = "menu";
+
+            break;
+
+
+        case "menu": {
+
+            const resultado =
+                await procesarMenu(
+                    mensaje,
+                    telefono
+                );
+
+            respuesta =
+                resultado.respuesta;
+
+            siguientePaso =
+                resultado.siguientePaso;
+
+            break;
+        }
+
+        case "esperando_nombre":
+        case "esperando_curp":
+        case "esperando_fecha":
+        case "esperando_sexo":
+        case "esperando_municipio":
+        case "esperando_estudios":
+        case "esperando_puesto": {
+
+            const resultado =
+                await procesarRegistro(
+                    sesion,
+                    mensaje,
+                    telefono
+                );
+
+            respuesta =
+                resultado.respuesta;
+
+            siguientePaso =
+                resultado.siguientePaso;
+
+            break;
+        }
+
+
+
+        case "perfil_completo":
+        case "seleccionar_actualizacion":
+        case "actualizar_correo":
+        case "actualizar_municipio":
+        case "actualizar_categoria_carrera":
+        case "actualizar_carrera":
+        case "actualizar_colonia":
+        case "actualizar_experiencia":
+        case "actualizar_puesto":
+        case "actualizar_sueldo":
+        case "actualizar_horario": {
+
+            const resultado =
+                await procesarActualizacion(
+                    sesion,
+                    mensaje,
+                    telefono
+                );
+
+            respuesta =
+                resultado.respuesta;
+
+            siguientePaso =
+                resultado.siguientePaso;
+
+            break;
+        }
+
+
+        case "confirmar_completar_perfil":
+        case "esperando_correo":
+        case "esperando_colonia":
+        case "esperando_carrera":
+        case "esperando_experiencia":
+        case "perfil_licencia":
+        case "perfil_vehiculo":
+        case "perfil_viajar":
+        case "perfil_horario":
+        case "perfil_sueldo": {
+
+            const resultado =
+                await procesarPerfil(
+                    sesion,
+                    mensaje,
+                    telefono
+                );
+
+            respuesta =
+                resultado.respuesta;
+
+            siguientePaso =
+                resultado.siguientePaso;
+
+            break;
+        }
+
+
+
+        case "buscar_puesto":
+        case "seleccionar_vacante":
+        case "detalle_vacante": {
+
+            const resultado =
+                await procesarVacantes(
+                    sesion,
+                    mensaje,
+                    telefono
+                );
+
+            respuesta =
+                resultado.respuesta;
+
+            siguientePaso =
+                resultado.siguientePaso;
+
+            break;
+        }
+
+
+
+        case "consultar_folio":
+        case "folio_opciones":
+        case "buscar_vacantes":
+        case "opciones_vacantes":
+        case "perfil_ya_completo": {
+
+            const resultado =
+                await procesarFolio(
+                    sesion,
+                    mensaje,
+                    telefono
+                );
+
+            respuesta =
+                resultado.respuesta;
+
+            siguientePaso =
+                resultado.siguientePaso;
+
+            break;
+        }
+
+        case "finalizado":
+
+            respuesta =
+`👋 Esta conversación ha finalizado.
+
+Escribe "inicio" para volver a comenzar.`;
+
+            siguientePaso =
+                "finalizado";
+
+            break;
+
+
+        default:
+
+            respuesta =
+`⚠️ No entendí tu mensaje.
+
+Por favor, escribe "inicio" para volver al menú principal.`;
+
+            siguientePaso =
+                "menu";
+
+            break;
+
+    }
+
+
+    return {
+        respuesta,
+        siguientePaso
+    };
+
+}
+
+
+module.exports = {
+    procesarMensaje
+};
+
+
+
+const {
+    obtenerSesion,
+    actualizarDatosTemporales
+} = require("../services/sesion.service");
+
+const {
+    actualizarDato,
+    actualizarDatoPorId
+} = require("../services/buscador.service");
+
+const {
+    validarCorreo
+} = require("../utils/validaciones");
+
+const {
+    horario,
+    municipios,
+    categoriasCarrera,
+    carreras
+} = require("../utils/catalogos");
+
+const {
+    generarMenu
+} = require("../utils/menu");
+
+
+async function actualizarDatoUsuario(
+    sesion,
+    telefono,
+    campo,
+    valor
+) {
+
+    const datosTemporales =
+        sesion.datos_temporales || {};
+
+    const usuarioAutorizadoId =
+        datosTemporales.usuario_autorizado_id;
+
+    const seguridadVerificada =
+        datosTemporales.seguridad_verificada === true;
+
+
+    // =================================================
+    // USUARIO AUTORIZADO MEDIANTE CÓDIGO
+    // =================================================
+
+    if (
+        seguridadVerificada &&
+        usuarioAutorizadoId
+    ) {
+
+        console.log(
+            "🔐 Actualizando registro autorizado."
+        );
+
+        console.log(
+            "🆔 ID del usuario:",
+            usuarioAutorizadoId
+        );
+
+        console.log(
+            "📱 WhatsApp actual:",
+            telefono
+        );
+
+        console.log(
+            "📱 Teléfono registrado:",
+            datosTemporales.telefono_registrado
+        );
+
+        await actualizarDatoPorId(
+            usuarioAutorizadoId,
+            campo,
+            valor
+        );
+
+        return;
+    }
+
+
+    // =================================================
+    // USUARIO NORMAL
+    // =================================================
+
+    console.log(
+        "📱 Actualizando usuario mediante teléfono:",
+        telefono
+    );
+
+    await actualizarDato(
+        telefono,
+        campo,
+        valor
+    );
+}
+
+
+
+
+// =====================================================
+// PROCESAR ACTUALIZACIÓN
+// =====================================================
+
+async function procesarActualizacion(
+    sesion,
+    mensaje,
+    telefono
+) {
+
+    let respuesta = "";
+
+    let siguientePaso =
+        sesion.paso_actual;
+
+
+    // =================================================
+    // SELECCIONAR DATO A ACTUALIZAR
+    // =================================================
+
+    switch (sesion.paso_actual) {
+
+
+        case "seleccionar_actualizacion":
+
+            switch (mensaje) {
+
+
+                // =====================================
+                // CORREO
+                // =====================================
+
+                case "1":
+
+                    respuesta = `
+📧 Escribe el nuevo correo electrónico.
+
+Ejemplo:
+usuario@gmail.com
+`;
+
+                    siguientePaso =
+                        "actualizar_correo";
+
+                    break;
+
+
+                // =====================================
+                // MUNICIPIO
+                // =====================================
+
+                case "2":
+
+                    respuesta = `
+📍 Selecciona el municipio.
+
+${generarMenu(municipios)}
+`;
+
+                    siguientePaso =
+                        "actualizar_municipio";
+
+                    break;
+
+
+                // =====================================
+                // COLONIA
+                // =====================================
+
+                case "3":
+
+                    respuesta =
+                        "📍 Escribe la nueva colonia.";
+
+                    siguientePaso =
+                        "actualizar_colonia";
+
+                    break;
+
+
+                // =====================================
+                // CARRERA
+                // =====================================
+
+                case "4":
+
+                    respuesta = `
+🎓 Selecciona el área de tu carrera.
+
+${generarMenu(categoriasCarrera)}
+`;
+
+                    siguientePaso =
+                        "actualizar_categoria_carrera";
+
+                    console.log(
+                        "PASO GUARDADO:",
+                        siguientePaso
+                    );
+
+                    break;
+
+
+                // =====================================
+                // EXPERIENCIA
+                // =====================================
+
+                case "5":
+
+                    respuesta = `
+💼 Describe tu experiencia laboral.
+
+Incluye la siguiente información:
+
+• Puesto
+• Empresa
+• Periodo
+• Actividades realizadas
+`;
+
+                    siguientePaso =
+                        "actualizar_experiencia";
+
+                    break;
+
+
+                // =====================================
+                // PUESTO
+                // =====================================
+
+                case "0":
+
+                    respuesta = `
+💼 Escribe el nuevo puesto que estás buscando.
+
+Ejemplo:
+Chofer
+`;
+
+                    siguientePaso =
+                        "actualizar_puesto";
+
+                    break;
+
+
+                // =====================================
+                // SUELDO
+                // =====================================
+
+                case "9":
+
+                    respuesta =
+                        "💰 Escribe el nuevo sueldo.";
+
+                    siguientePaso =
+                        "actualizar_sueldo";
+
+                    break;
+
+
+                // =====================================
+                // HORARIO
+                // =====================================
+
+                case "10":
+
+                    respuesta = `
+🕒 Selecciona el horario.
+
+${generarMenu(horario)}
+`;
+
+                    siguientePaso =
+                        "actualizar_horario";
+
+                    break;
+
+
+                // =====================================
+                // OPCIÓN NO VÁLIDA
+                // =====================================
+
+                default:
+
+                    respuesta =
+                        "⚠️ Selecciona una opción válida.";
+
+                    break;
+            }
+
+            break;
+
+
+
+        // =================================================
+        // ACTUALIZAR CORREO
+        // =================================================
+
+        case "actualizar_correo":
+
+            if (!validarCorreo(mensaje)) {
+
+                respuesta =
+`⚠️ Escribe un correo válido.
+
+Ejemplo:
+usuario@gmail.com`;
+
+            } else {
+
+                await actualizarDatoUsuario(
+                    sesion,
+                    telefono,
+                    "correo",
+                    mensaje.trim()
+                );
+
+                respuesta =
+                    "✅ Correo actualizado correctamente.";
+
+                siguientePaso =
+                    "menu";
+            }
+
+            break;
+
+
+
+        // =================================================
+        // ACTUALIZAR MUNICIPIO
+        // =================================================
+
+        case "actualizar_municipio":
+
+            if (!municipios[mensaje]) {
+
+                respuesta = `
+⚠️ Selecciona una opción válida.
+
+${generarMenu(municipios)}
+`;
+
+            } else {
+
+                await actualizarDatoUsuario(
+                    sesion,
+                    telefono,
+                    "municipio",
+                    municipios[mensaje]
+                );
+
+                respuesta =
+                    "✅ Municipio actualizado.";
+
+                siguientePaso =
+                    "menu";
+            }
+
+            break;
+
+
+
+        // =================================================
+        // SELECCIONAR CATEGORÍA DE CARRERA
+        // =================================================
+
+        case "actualizar_categoria_carrera": {
+
+            if (!categoriasCarrera[mensaje]) {
+
+                respuesta = `
+⚠️ Selecciona una opción válida.
+
+${generarMenu(categoriasCarrera)}
+`;
+
+            } else {
+
+                const sesionActual =
+                    await obtenerSesion(telefono);
+
+                let datosTemporales =
+                    sesionActual.datos_temporales || {};
+
+
+                datosTemporales.categoriaCarrera =
+                    mensaje;
+
+
+                await actualizarDatosTemporales(
+                    telefono,
+                    datosTemporales
+                );
+
+
+                respuesta = `
+📚 Selecciona tu carrera:
+
+${generarMenu(carreras[mensaje])}
+`;
+
+                siguientePaso =
+                    "actualizar_carrera";
+            }
+
+            break;
+        }
+
+
+
+        // =================================================
+        // ACTUALIZAR COLONIA
+        // =================================================
+
+        case "actualizar_colonia":
+
+            if (!mensaje.trim()) {
+
+                respuesta =
+                    "⚠️ Escribe una colonia válida.";
+
+                break;
+            }
+
+
+            await actualizarDatoUsuario(
+                sesion,
+                telefono,
+                "colonia",
+                mensaje.trim()
+            );
+
+
+            respuesta =
+                "✅ Colonia actualizada correctamente.";
+
+            siguientePaso =
+                "menu";
+
+            break;
+
+
+
+        // =================================================
+        // ACTUALIZAR CARRERA
+        // =================================================
+
+        case "actualizar_carrera": {
+
+            const sesionActual =
+                await obtenerSesion(telefono);
+
+
+            const datosTemporales =
+                sesionActual.datos_temporales || {};
+
+
+            const categoria =
+                datosTemporales.categoriaCarrera;
+
+
+            if (
+                !categoria ||
+                !carreras[categoria] ||
+                !carreras[categoria][mensaje]
+            ) {
+
+                respuesta = `
+⚠️ Selecciona una carrera válida.
+
+${
+    categoria && carreras[categoria]
+        ? generarMenu(carreras[categoria])
+        : "No se encontró la categoría de carrera."
+}
+`;
+
+            } else {
+
+                const carreraSeleccionada =
+                    carreras[categoria][mensaje];
+
+
+                await actualizarDatoUsuario(
+                    sesion,
+                    telefono,
+                    "carrera",
+                    carreraSeleccionada
+                );
+
+
+                // Limpiar categoría temporal
+                delete datosTemporales.categoriaCarrera;
+
+
+                await actualizarDatosTemporales(
+                    telefono,
+                    datosTemporales
+                );
+
+
+                respuesta = `
+✅ Carrera actualizada correctamente.
+
+🎓 Carrera:
+${carreraSeleccionada}
+`;
+
+                siguientePaso =
+                    "menu";
+            }
+
+            break;
+        }
+
+
+
+        // =================================================
+        // ACTUALIZAR EXPERIENCIA
+        // =================================================
+
+        case "actualizar_experiencia":
+
+            if (!mensaje.trim()) {
+
+                respuesta =
+                    "⚠️ Escribe una experiencia válida.";
+
+                break;
+            }
+
+
+            await actualizarDatoUsuario(
+                sesion,
+                telefono,
+                "experiencia",
+                mensaje.trim()
+            );
+
+
+            respuesta =
+                "✅ Experiencia actualizada correctamente.";
+
+            siguientePaso =
+                "menu";
+
+            break;
+
+
+
+        // =================================================
+        // ACTUALIZAR PUESTO
+        // =================================================
+
+        case "actualizar_puesto":
+
+            if (
+                mensaje.trim().length < 2
+            ) {
+
+                respuesta =
+                    "⚠️ Escribe un puesto válido.";
+
+                break;
+            }
+
+
+            await actualizarDatoUsuario(
+                sesion,
+                telefono,
+                "puesto_solicitado",
+                mensaje.trim()
+            );
+
+
+            respuesta =
+                "✅ Puesto actualizado correctamente.";
+
+            siguientePaso =
+                "menu";
+
+            break;
+
+
+
+        // =================================================
+        // ACTUALIZAR SUELDO
+        // =================================================
+
+        case "actualizar_sueldo":
+
+            if (!mensaje.trim()) {
+
+                respuesta =
+                    "⚠️ Escribe un sueldo válido.";
+
+                break;
+            }
+
+
+            await actualizarDatoUsuario(
+                sesion,
+                telefono,
+                "sueldo_deseado",
+                mensaje.trim()
+            );
+
+
+            respuesta =
+                "✅ Sueldo actualizado correctamente.";
+
+            siguientePaso =
+                "menu";
+
+            break;
+
+
+
+        // =================================================
+        // ACTUALIZAR HORARIO
+        // =================================================
+
+        case "actualizar_horario":
+
+            if (!horario[mensaje]) {
+
+                respuesta = `
+⚠️ Selecciona una opción válida.
+
+${generarMenu(horario)}
+`;
+
+            } else {
+
+                await actualizarDatoUsuario(
+                    sesion,
+                    telefono,
+                    "horario",
+                    horario[mensaje]
+                );
+
+
+                respuesta = `
+✅ Horario actualizado correctamente.
+
+🕒 Horario seleccionado:
+${horario[mensaje]}
+`;
+
+                siguientePaso =
+                    "menu";
+            }
+
+            break;
+
+
+        default:
+
+            respuesta =
+                "⚠️ No se encontró un proceso de actualización válido.";
+
+            siguientePaso =
+                "menu";
+
+            break;
+    }
+
+
+    return {
+        respuesta,
+        siguientePaso
+    };
+}
+
+
+module.exports = {
+    procesarActualizacion
+};
+
+
+const {
+    obtenerBuscadorPorTelefono,
+    obtenerBuscadorPorId
+} = require("../services/buscador.service");
+
+async function procesarMenu(
+    mensaje,
+    telefono,
+    sesion
+) {
+
+    let respuesta = "";
+    let siguientePaso = "menu";
+
+    const datosTemporales =
+        sesion?.datos_temporales || {};
+
+    const seguridadVerificada =
+        datosTemporales.seguridad_verificada === true;
+
+    const usuarioAutorizadoId =
+        datosTemporales.usuario_autorizado_id;
+
+
+
+    let usuarioActual = null;
+
+    if (
+        seguridadVerificada &&
+        usuarioAutorizadoId
+    ) {
+
+        console.log(
+            "🔐 Usuario autorizado detectado."
+        );
+
+        console.log(
+            "🆔 ID autorizado:",
+            usuarioAutorizadoId
+        );
+
+        usuarioActual =
+            await obtenerBuscadorPorId(
+                usuarioAutorizadoId
+            );
+
+    } else {
+
+        console.log(
+            "📱 Buscando usuario mediante teléfono:",
+            telefono
+        );
+
+        usuarioActual =
+            await obtenerBuscadorPorTelefono(
+                telefono
+            );
+    }
+
+
+    const usuarioRegistrado =
+        usuarioActual !== null;
+
+    switch (mensaje) {
+
+
+
+        case "1": {
+
+    respuesta = `
+🔎 *Buscar vacantes*
+
+Para mostrarte las vacantes más cercanas a tu ubicación, primero necesitamos conocer tu nivel de estudios.
+
+🎓 Selecciona una opción:
+
+1️⃣ Primaria
+2️⃣ Secundaria
+3️⃣ Preparatoria o vocacional
+4️⃣ Licenciatura
+
+6️⃣ Menú principal
+7️⃣ Salir
+`;
+
+    siguientePaso =
+        "esperando_escolaridad";
+
+    break;
+}
+
+
+            if (!usuarioActual.codigo_postal) {
+
+                respuesta = `
+⚠️ No tienes un código postal registrado.
+
+Para poder mostrarte vacantes cercanas necesitamos conocer tu ubicación.
+
+Primero actualiza tu código postal.
+`;
+
+                siguientePaso =
+                    "menu";
+
+                break;
+            }
+
+
+            respuesta = `
+🔎 *Buscar vacantes*
+
+Para mostrarte las vacantes más cercanas a tu ubicación, primero necesitamos conocer tu nivel de estudios.
+
+🎓 Selecciona una opción:
+
+1️⃣ Primaria
+2️⃣ Secundaria
+3️⃣ Preparatoria o vocacional
+4️⃣ Licenciatura
+
+6️⃣ Menú principal
+7️⃣ Salir
+`;
+
+            siguientePaso =
+                "esperando_escolaridad";
+
+            break;
+
+
+
+        case "2": {
+
+
+            if (usuarioRegistrado) {
+
+                console.log(
+                    "👤 Usuario registrado. Mostrando sus datos."
+                );
+
+                console.log(
+                    "🆔 ID:",
+                    usuarioActual.id
+                );
+
+                respuesta = `
+👤 *Mis datos*
+
+📄 *CURP:*
+${usuarioActual.curp || "No registrada"}
+
+👤 *Nombre:*
+${usuarioActual.nombre_completo || "No registrado"}
+
+🎂 *Fecha de nacimiento:*
+${
+    usuarioActual.fecha_nacimiento
+        ? new Date(
+            usuarioActual.fecha_nacimiento
+        ).toLocaleDateString("es-MX")
+        : "No registrada"
+}
+
+⚧️ *Género:*
+${usuarioActual.sexo || "No registrado"}
+
+📱 *WhatsApp registrado:*
+${usuarioActual.telefono || "No registrado"}
+
+📧 *Correo:*
+${usuarioActual.correo || "No registrado"}
+
+📮 *Código postal:*
+${usuarioActual.codigo_postal || "No registrado"}
+
+📄 *Folio:*
+${usuarioActual.folio || "Aún no asignado"}
+
+━━━━━━━━━━━━━━━━━━
+
+¿Qué deseas hacer?
+
+1️⃣ Buscar vacantes
+3️⃣ Actualizar mis datos
+4️⃣ Consultar mi folio
+5️⃣ Hablar con un asesor
+6️⃣ Menú principal
+7️⃣ Salir
+`;
+
+                siguientePaso =
+                    "menu";
+
+            }
+
+
+
+            else {
+
+                respuesta = `
+Perfecto 👍
+
+Vamos a registrar tus datos.
+
+Primero necesitamos verificar si ya estás registrado en el Sistema Nacional de Empleo.
+
+¿Cuál es tu CURP?
+`;
+
+                siguientePaso =
+                    "esperando_curp";
+
+            }
+
+            break;
+        }
+
+
+        case "3": {
+
+            if (!usuarioRegistrado) {
+
+                respuesta = `
+⚠️ No encontramos ningún registro asociado a este número.
+
+Primero debes registrar tus datos.
+`;
+
+                siguientePaso =
+                    "menu";
+
+                break;
+            }
+
+
+            console.log(
+                "✏️ Usuario encontrado para actualización."
+            );
+
+            console.log(
+                "🆔 ID:",
+                usuarioActual.id
+            );
+
+
+            respuesta = `
+✏️ *¿Qué dato deseas actualizar?*
+
+1️⃣ Correo
+2️⃣ Código postal
+
+6️⃣ Menú principal
+7️⃣ Salir
+`;
+
+            siguientePaso =
+                "seleccionar_actualizacion";
+
+            break;
+        }
+
+
+
+        case "4":
+
+            respuesta = `
+🔎 *Consultar folio*
+
+Escribe tu folio.
+`;
+
+            siguientePaso =
+                "consultar_folio";
+
+            break;
+
+
+
+        case "5":
+
+            respuesta = `
+👨‍💼 Un asesor se pondrá en contacto contigo.
+`;
+
+            siguientePaso =
+                "asesor";
+
+            break;
+
+
+        case "6":
+
+            if (usuarioRegistrado) {
+
+                respuesta = `
+👋 *Menú principal*
+
+¿Qué deseas hacer?
+
+1️⃣ Buscar vacantes
+2️⃣ Ver mis datos
+3️⃣ Actualizar mis datos
+4️⃣ Consultar mi folio
+5️⃣ Hablar con un asesor
+6️⃣ Menú principal
+7️⃣ Salir
+`;
+
+            } else {
+
+                respuesta = `
+👋 *Menú principal*
+
+¿Qué deseas hacer?
+
+1️⃣ Buscar vacantes
+2️⃣ Registrar mis datos
+3️⃣ Actualizar mis datos
+4️⃣ Consultar mi folio
+5️⃣ Hablar con un asesor
+6️⃣ Menú principal
+7️⃣ Salir
+`;
+
+            }
+
+            siguientePaso =
+                "menu";
+
+            break;
+
+
+
+        case "7":
+
+            respuesta = `
+👋 Gracias por utilizar el asistente SNE.
+`;
+
+            siguientePaso =
+                "finalizado";
+
+            break;
+
+
+        default:
+
+            if (usuarioRegistrado) {
+
+                respuesta = `
+⚠️ Selecciona una opción válida.
+
+1️⃣ Buscar vacantes
+2️⃣ Ver mis datos
+3️⃣ Actualizar mis datos
+4️⃣ Consultar mi folio
+5️⃣ Hablar con un asesor
+6️⃣ Menú principal
+7️⃣ Salir
+`;
+
+            } else {
+
+                respuesta = `
+⚠️ Selecciona una opción válida.
+
+1️⃣ Buscar vacantes
+2️⃣ Registrar mis datos
+3️⃣ Actualizar mis datos
+4️⃣ Consultar mi folio
+5️⃣ Hablar con un asesor
+6️⃣ Menú principal
+7️⃣ Salir
+`;
+
+            }
+
+            siguientePaso =
+                "menu";
+
+            break;
+    }
+
+
+    return {
+        respuesta,
+        siguientePaso
+    };
+}
+
+
+module.exports = {
+    procesarMenu
+};
+
+
+
+vacantesflow ultima version 
+const {
+    buscarVacantes,
+    obtenerVacantePorId
+} = require("../services/vacante.service");
+
+const {
+    obtenerUbicacionPorCodigoPostal,
+    ordenarPorProximidad
+} = require("../services/ubicacion.service");
+
+const {
+    actualizarDatosTemporales
+} = require("../services/sesion.service");
+
+const {
+    crearPostulacion
+} = require("../services/postulacion.service");
+
+const clasificarImagenVacante =
+    require("../utils/clasificarImagenVacante");
+
+const db = require("../config/database");
+
+
+async function procesarVacantes(
+    sesion,
+    mensaje,
+    telefono
+) {
+
+    let respuesta = "";
+    let siguientePaso = sesion.paso_actual;
+
+    const datosTemporales =
+        sesion.datos_temporales || {};
+
+    // Normalizar mensaje
+    mensaje = String(mensaje || "")
+        .trim()
+        .toLowerCase();
+
+
+    switch (sesion.paso_actual) {
+
+        case "esperando_escolaridad": {
+
+            // Menú principal
+            if (mensaje === "6") {
+
+                respuesta = `
+📋 *MENÚ PRINCIPAL*
+
+¿Qué deseas hacer?
+
+1️⃣ Buscar vacantes
+2️⃣ Ver mis datos
+3️⃣ Actualizar mis datos
+4️⃣ Consultar mi folio
+5️⃣ Hablar con un asesor
+6️⃣ Menú principal
+7️⃣ Salir
+`;
+
+                siguientePaso = "menu";
+                break;
+            }
+
+
+            // Salir
+            if (mensaje === "7") {
+
+                respuesta = `
+👋 Gracias por utilizar el Sistema Nacional de Empleo.
+
+Cuando necesites nuevamente nuestros servicios, aquí estaremos.
+
+¡Hasta pronto!
+`;
+
+                siguientePaso = "finalizado";
+                break;
+            }
+
+
+            let escolaridad = "";
+
+
+            switch (mensaje) {
+
+                case "1":
+                    escolaridad = "Primaria";
+                    break;
+
+                case "2":
+                    escolaridad = "Secundaria";
+                    break;
+
+                case "3":
+                    escolaridad =
+                        "Preparatoria o vocacional";
+                    break;
+
+                case "4":
+                    escolaridad = "Licenciatura";
+                    break;
+
+                default:
+
+                    respuesta = `
+⚠️ *Selecciona una opción válida.*
+
+🎓 Nivel de estudios:
+
+1️⃣ Primaria
+2️⃣ Secundaria
+3️⃣ Preparatoria o vocacional
+4️⃣ Licenciatura
+
+6️⃣ Menú principal
+7️⃣ Salir
+`;
+
+                    siguientePaso =
+                        "esperando_escolaridad";
+
+                    break;
+            }
+
+
+            if (!escolaridad) {
+                break;
+            }
+
+
+            datosTemporales.escolaridad =
+                escolaridad;
+
+
+            await actualizarDatosTemporales(
+                telefono,
+                datosTemporales
+            );
+
+
+            let codigoPostal =
+                datosTemporales.codigo_postal;
+
+            if (!codigoPostal) {
+
+                let usuario = null;
+
+
+                if (
+                    datosTemporales.usuario_autorizado_id
+                ) {
+
+                    const resultado =
+                        await db.query(
+                            `
+                            SELECT
+                                id,
+                                codigo_postal
+                            FROM buscadores_empleo
+                            WHERE id = $1
+                            LIMIT 1
+                            `,
+                            [
+                                datosTemporales
+                                    .usuario_autorizado_id
+                            ]
+                        );
+
+                    usuario =
+                        resultado.rows[0] || null;
+
+                } else {
+
+                    const resultado =
+                        await db.query(
+                            `
+                            SELECT
+                                id,
+                                codigo_postal
+                            FROM buscadores_empleo
+                            WHERE telefono = $1
+                            LIMIT 1
+                            `,
+                            [telefono]
+                        );
+
+                    usuario =
+                        resultado.rows[0] || null;
+                }
+
+
+                if (usuario) {
+
+                    codigoPostal =
+                        usuario.codigo_postal;
+
+                }
+            }
+
+
+            if (!codigoPostal) {
+
+                respuesta = `
+📍 *Código postal*
+
+Para mostrarte vacantes cercanas necesitamos conocer tu ubicación.
+
+Escribe tu código postal:
+
+Ejemplo:
+
+29000
+
+6️⃣ Menú principal
+7️⃣ Salir
+`;
+
+                siguientePaso =
+                    "esperando_codigo_postal_busqueda";
+
+                break;
+            }
+
+            const ubicacion =
+                await obtenerUbicacionPorCodigoPostal(
+                    codigoPostal
+                );
+
+
+            if (!ubicacion) {
+
+                respuesta = `
+⚠️ No pudimos identificar tu municipio mediante tu código postal.
+
+Verifica que tu código postal esté registrado correctamente.
+
+6️⃣ Menú principal
+7️⃣ Salir
+`;
+
+                siguientePaso = "menu";
+
+                break;
+            }
+
+            let vacantes =
+                await buscarVacantes(
+                    escolaridad
+                );
+
+
+            vacantes =
+                ordenarPorProximidad(
+                    vacantes,
+                    ubicacion.municipio
+                );
+
+
+            if (vacantes.length === 0) {
+
+                respuesta = `
+😕 No encontramos vacantes activas para:
+
+🎓 ${escolaridad}
+
+📍 Tu ubicación:
+${ubicacion.municipio}, ${ubicacion.entidad}
+
+Puedes intentar con otro nivel de estudios.
+
+1️⃣ Nueva búsqueda
+6️⃣ Menú principal
+7️⃣ Salir
+`;
+
+                siguientePaso =
+                    "seleccionar_vacante";
+
+                break;
+            }
+
+            const vacantesMostrar =
+                vacantes.slice(0, 10);
+
+
+            const vacantesConImagen =
+                vacantesMostrar.map(v => ({
+                    ...v,
+                    imagen_categoria:
+                        clasificarImagenVacante(v)
+                }));
+
+
+            respuesta = `
+🔎 *Encontré vacantes para:*
+
+🎓 ${escolaridad}
+
+📍 Ubicación de tu perfil:
+${ubicacion.municipio}, ${ubicacion.entidad}
+
+Estas son las opciones más cercanas:
+
+`;
+
+
+            vacantesConImagen.forEach(
+                (v, index) => {
+
+                    respuesta += `
+${index + 1}️⃣ ${v.puesto}
+
+🏢 Empresa:
+${v.empresa}
+
+📍 Ubicación:
+${v.municipio}, ${v.entidad}
+
+💰 Salario:
+$${v.salario || "No especificado"}
+
+📚 Escolaridad:
+${v.nivel_estudios}
+
+👥 Plazas:
+${v.numero_plazas || "No especificado"}
+
+`;
+                }
+            );
+
+            respuesta += `
+📋 *Para consultar una vacante, escribe su número.*
+
+Ejemplo:
+
+1
+
+Puedes escribir *menu* para regresar al menú principal.
+Puedes escribir *salir* para terminar.
+`;
+
+
+            datosTemporales.vacantes_encontradas =
+                vacantesMostrar.map(
+                    v => v.id
+                );
+
+
+            datosTemporales.municipio_busqueda =
+                ubicacion.municipio;
+
+
+            datosTemporales.entidad_busqueda =
+                ubicacion.entidad;
+
+
+            await actualizarDatosTemporales(
+                telefono,
+                datosTemporales
+            );
+
+
+            siguientePaso =
+                "seleccionar_vacante";
+
+            break;
+        }
+
+        case "esperando_codigo_postal_busqueda": {
+
+            // Menú principal
+            if (mensaje === "6") {
+
+                respuesta = `
+📋 *MENÚ PRINCIPAL*
+
+¿Qué deseas hacer?
+
+1️⃣ Buscar vacantes
+2️⃣ Ver mis datos
+3️⃣ Actualizar mis datos
+4️⃣ Consultar mi folio
+5️⃣ Hablar con un asesor
+6️⃣ Menú principal
+7️⃣ Salir
+`;
+
+                siguientePaso = "menu";
+
+                break;
+            }
+
+
+            // Salir
+            if (mensaje === "7") {
+
+                respuesta = `
+👋 Gracias por utilizar el Sistema Nacional de Empleo.
+
+Cuando necesites nuevamente nuestros servicios, aquí estaremos.
+
+¡Hasta pronto!
+`;
+
+                siguientePaso = "finalizado";
+
+                break;
+            }
+
+
+            // Validar 5 dígitos
+            if (!/^\d{5}$/.test(mensaje)) {
+
+                respuesta = `
+⚠️ *Código postal no válido.*
+
+El código postal debe tener exactamente 5 dígitos.
+
+Por favor, escríbelo nuevamente.
+
+Ejemplo:
+
+29000
+
+6️⃣ Menú principal
+7️⃣ Salir
+`;
+
+                siguientePaso =
+                    "esperando_codigo_postal_busqueda";
+
+                break;
+            }
+
+
+            // Buscar ubicación
+            const ubicacion =
+                await obtenerUbicacionPorCodigoPostal(
+                    mensaje
+                );
+
+
+            if (!ubicacion) {
+
+                respuesta = `
+⚠️ *Código postal no encontrado.*
+
+No pudimos identificar tu municipio mediante el código postal:
+
+${mensaje}
+
+Verifica que sea correcto y escríbelo nuevamente.
+
+Ejemplo:
+
+29000
+
+6️⃣ Menú principal
+7️⃣ Salir
+`;
+
+                siguientePaso =
+                    "esperando_codigo_postal_busqueda";
+
+                break;
+            }
+
+
+            // Guardar CP
+            datosTemporales.codigo_postal =
+                mensaje;
+
+
+            await actualizarDatosTemporales(
+                telefono,
+                datosTemporales
+            );
+
+
+            const escolaridad =
+                datosTemporales.escolaridad;
+
+
+            if (!escolaridad) {
+
+                respuesta = `
+⚠️ No pudimos recuperar tu nivel de estudios.
+
+Por favor inicia nuevamente la búsqueda.
+
+6️⃣ Menú principal
+7️⃣ Salir
+`;
+
+                siguientePaso =
+                    "menu";
+
+                break;
+            }
+
+
+            // Buscar vacantes
+            let vacantes =
+                await buscarVacantes(
+                    escolaridad
+                );
+
+
+            vacantes =
+                ordenarPorProximidad(
+                    vacantes,
+                    ubicacion.municipio
+                );
+
+
+            if (vacantes.length === 0) {
+
+                respuesta = `
+😕 No encontramos vacantes activas para:
+
+🎓 ${escolaridad}
+
+📍 Tu ubicación:
+${ubicacion.municipio}, ${ubicacion.entidad}
+
+Puedes intentar con otro nivel de estudios.
+
+1️⃣ Nueva búsqueda
+6️⃣ Menú principal
+7️⃣ Salir
+`;
+
+                siguientePaso =
+                    "seleccionar_vacante";
+
+                break;
+            }
+
+
+            const vacantesMostrar =
+                vacantes.slice(0, 10);
+
+
+            const vacantesConImagen =
+                vacantesMostrar.map(v => ({
+                    ...v,
+                    imagen_categoria:
+                        clasificarImagenVacante(v)
+                }));
+
+
+            respuesta = `
+🔎 *Encontré vacantes para:*
+
+🎓 ${escolaridad}
+
+📍 Ubicación:
+${ubicacion.municipio}, ${ubicacion.entidad}
+
+Estas son las opciones más cercanas:
+`;
+
+
+            vacantesConImagen.forEach(
+                (v, index) => {
+
+                    respuesta += `
+
+${index + 1}️⃣ ${v.puesto}
+
+🏢 Empresa:
+${v.empresa}
+
+📍 Ubicación:
+${v.municipio}, ${v.entidad}
+
+💰 Salario:
+$${v.salario || "No especificado"}
+
+📚 Escolaridad:
+${v.nivel_estudios}
+
+👥 Plazas:
+${v.numero_plazas || "No especificado"}
+
+`;
+                }
+            );
+
+
+            respuesta += `
+📋 *Para consultar una vacante, escribe su número.*
+
+Ejemplo:
+
+1
+
+Puedes escribir *menu* para regresar al menú principal.
+Puedes escribir *salir* para terminar.
+`;
+
+
+            datosTemporales.vacantes_encontradas =
+                vacantesMostrar.map(
+                    v => v.id
+                );
+
+
+            datosTemporales.municipio_busqueda =
+                ubicacion.municipio;
+
+
+            datosTemporales.entidad_busqueda =
+                ubicacion.entidad;
+
+
+            await actualizarDatosTemporales(
+                telefono,
+                datosTemporales
+            );
+
+
+            siguientePaso =
+                "seleccionar_vacante";
+
+            break;
+        }
+
+
+        case "seleccionar_vacante": {
+
+            if (mensaje === "menu") {
+
+                respuesta = `
+📋 *MENÚ PRINCIPAL*
+
+¿Qué deseas hacer?
+
+1️⃣ Buscar vacantes
+2️⃣ Ver mis datos
+3️⃣ Actualizar mis datos
+4️⃣ Consultar mi folio
+5️⃣ Hablar con un asesor
+6️⃣ Menú principal
+7️⃣ Salir
+`;
+
+                siguientePaso = "menu";
+
+                break;
+            }
+
+
+            if (mensaje === "salir") {
+
+                respuesta = `
+👋 Gracias por utilizar el Sistema Nacional de Empleo.
+
+Cuando necesites nuevamente nuestros servicios, aquí estaremos.
+
+¡Hasta pronto!
+`;
+
+                siguientePaso = "finalizado";
+
+                break;
+            }
+
+
+            // Validar que sea número
+            if (!/^\d+$/.test(mensaje)) {
+
+                respuesta = `
+⚠️ *Opción no válida.*
+
+📋 Escribe el número de la vacante que deseas consultar.
+
+Ejemplo:
+
+1
+
+Puedes escribir *menu* para regresar al menú principal.
+Puedes escribir *salir* para terminar.
+`;
+
+                siguientePaso =
+                    "seleccionar_vacante";
+
+                break;
+            }
+
+
+            const numero =
+                parseInt(mensaje);
+
+
+            const ids =
+                datosTemporales
+                    .vacantes_encontradas || [];
+
+
+            if (
+                numero < 1 ||
+                numero > ids.length
+            ) {
+
+                respuesta =
+                    `⚠️ Esa vacante no existe.
+
+📋 Selecciona un número entre 1 y ${ids.length}.
+
+Ejemplo:
+
+1
+
+Puedes escribir *menu* para regresar al menú principal.
+Puedes escribir *salir* para terminar.
+`;
+
+                siguientePaso =
+                    "seleccionar_vacante";
+
+                break;
+            }
+
+            const idVacante =
+                ids[numero - 1];
+
+
+            datosTemporales.vacante_seleccionada =
+                idVacante;
+
+
+            await actualizarDatosTemporales(
+                telefono,
+                datosTemporales
+            );
+
+            const vacante =
+                await obtenerVacantePorId(
+                    idVacante
+                );
+
+
+            if (!vacante) {
+
+                respuesta = `
+⚠️ No pudimos encontrar esa vacante.
+
+Puedes realizar una nueva búsqueda.
+
+2️⃣ Nueva búsqueda
+6️⃣ Menú principal
+7️⃣ Salir
+`;
+
+                siguientePaso =
+                    "seleccionar_vacante";
+
+                break;
+            }
+
+            respuesta = `
+📋 *DETALLE DE VACANTE*
+
+💼 Puesto:
+${vacante.puesto}
+
+🏢 Empresa:
+${vacante.empresa}
+
+📍 Ubicación:
+${vacante.municipio}, ${vacante.entidad}
+
+🎓 Escolaridad:
+${vacante.nivel_estudios}
+
+📚 Experiencia:
+${vacante.experiencia || "No especificada"}
+
+💰 Salario:
+$${vacante.salario || "No especificado"}
+
+👥 Plazas disponibles:
+${vacante.numero_plazas || "No especificado"}
+
+¿Qué deseas hacer?
+
+1️⃣ Postularme
+2️⃣ Buscar otra vacante
+6️⃣ Menú principal
+7️⃣ Salir
+`;
+
+
+            siguientePaso =
+                "detalle_vacante";
+
+            break;
+        }
+
+        case "detalle_vacante": {
+
+            switch (mensaje) {
+
+                case "6":
+
+                    respuesta = `
+📋 *MENÚ PRINCIPAL*
+
+¿Qué deseas hacer?
+
+1️⃣ Buscar vacantes
+2️⃣ Ver mis datos
+3️⃣ Actualizar mis datos
+4️⃣ Consultar mi folio
+5️⃣ Hablar con un asesor
+6️⃣ Menú principal
+7️⃣ Salir
+`;
+
+                    siguientePaso = "menu";
+
+                    break;
+
+                case "7":
+
+                    respuesta = `
+👋 Gracias por utilizar el Sistema Nacional de Empleo.
+
+Cuando necesites nuevamente nuestros servicios, aquí estaremos.
+
+¡Hasta pronto!
+`;
+
+                    siguientePaso =
+                        "finalizado";
+
+                    break;
+
+                case "1": {
+
+                    let buscadorId = null;
+
+                    if (
+                        datosTemporales
+                            .usuario_autorizado_id
+                    ) {
+
+                        buscadorId =
+                            datosTemporales
+                                .usuario_autorizado_id;
+
+                    }
+
+                    else {
+
+                        const resultado =
+                            await db.query(
+                                `
+                                SELECT id
+                                FROM buscadores_empleo
+                                WHERE telefono = $1
+                                LIMIT 1
+                                `,
+                                [telefono]
+                            );
+
+                        buscadorId =
+                            resultado.rows[0]?.id ||
+                            null;
+                    }
+
+                    if (!buscadorId) {
+
+                        datosTemporales
+                            .registro_desde_postulacion =
+                            true;
+
+
+                        await actualizarDatosTemporales(
+                            telefono,
+                            datosTemporales
+                        );
+
+
+                        respuesta = `
+📝 *Registro necesario*
+
+Para postularte a esta vacante necesitamos registrar tus datos en el Sistema Nacional de Empleo.
+
+La vacante que seleccionaste se conservará durante el proceso.
+
+Comencemos con tu registro.
+
+Escribe tu CURP:
+
+6️⃣ Menú principal
+7️⃣ Salir
+`;
+
+                        siguientePaso =
+                            "esperando_curp";
+
+                        break;
+                    }
+
+                    const vacanteId =
+                        datosTemporales
+                            .vacante_seleccionada;
+
+
+                    if (!vacanteId) {
+
+                        respuesta = `
+⚠️ No pudimos identificar la vacante seleccionada.
+
+Por favor realiza una nueva búsqueda.
+
+2️⃣ Nueva búsqueda
+6️⃣ Menú principal
+7️⃣ Salir
+`;
+
+                        siguientePaso =
+                            "menu";
+
+                        break;
+                    }
+
+                    const postulacion =
+                        await crearPostulacion(
+                            buscadorId,
+                            vacanteId
+                        );
+
+                    if (!postulacion) {
+
+                        respuesta = `
+ℹ️ Ya tienes una postulación registrada para esta vacante.
+
+No es necesario volver a postularte.
+
+¿Qué deseas hacer?
+
+1️⃣ Buscar más vacantes
+2️⃣ Menú principal
+7️⃣ Salir
+`;
+
+                        siguientePaso =
+                            "menu";
+
+                        break;
+                    }
+
+                    respuesta = `
+✅ *¡Postulación exitosa!*
+
+Tu solicitud ha sido registrada correctamente.
+
+Un asesor o reclutador podrá ponerse en contacto contigo.
+
+¿Qué deseas hacer?
+
+1️⃣ Buscar más vacantes
+2️⃣ Menú principal
+7️⃣ Salir
+`;
+
+                    siguientePaso =
+                        "menu";
+
+                    break;
+                }
+
+                case "2":
+
+                    respuesta = `
+🔎 *Nueva búsqueda*
+
+🎓 Selecciona tu nivel de estudios:
+
+1️⃣ Primaria
+2️⃣ Secundaria
+3️⃣ Preparatoria o vocacional
+4️⃣ Licenciatura
+
+6️⃣ Menú principal
+7️⃣ Salir
+`;
+
+                    siguientePaso =
+                        "esperando_escolaridad";
+
+                    break;
+
+
+                default:
+
+                    respuesta = `
+⚠️ *Selecciona una opción válida.*
+
+1️⃣ Postularme
+2️⃣ Buscar otra vacante
+6️⃣ Menú principal
+7️⃣ Salir
+`;
+
+                    siguientePaso =
+                        "detalle_vacante";
+
+                    break;
+            }
+
+            break;
+        }
+
+
+        case "seleccionando_numero_vacante": {
+
+            if (mensaje === "menu") {
+
+                respuesta = `
+📋 *MENÚ PRINCIPAL*
+
+¿Qué deseas hacer?
+
+1️⃣ Buscar vacantes
+2️⃣ Ver mis datos
+3️⃣ Actualizar mis datos
+4️⃣ Consultar mi folio
+5️⃣ Hablar con un asesor
+6️⃣ Menú principal
+7️⃣ Salir
+`;
+
+                siguientePaso =
+                    "menu";
+
+                break;
+            }
+
+
+            if (mensaje === "salir") {
+
+                respuesta = `
+👋 Gracias por utilizar el Sistema Nacional de Empleo.
+
+Cuando necesites nuevamente nuestros servicios, aquí estaremos.
+
+¡Hasta pronto!
+`;
+
+                siguientePaso =
+                    "finalizado";
+
+                break;
+            }
+
+
+            if (!/^\d+$/.test(mensaje)) {
+
+                respuesta = `
+⚠️ Opción no válida.
+
+📋 Escribe el número de la vacante que deseas consultar.
+
+Ejemplo:
+
+1
+`;
+
+                siguientePaso =
+                    "seleccionando_numero_vacante";
+
+                break;
+            }
+
+
+            const numero =
+                parseInt(mensaje);
+
+
+            const ids =
+                datosTemporales
+                    .vacantes_encontradas || [];
+
+
+            if (
+                numero < 1 ||
+                numero > ids.length
+            ) {
+
+                respuesta =
+                    `⚠️ Esa vacante no existe.
+
+📋 Selecciona un número entre 1 y ${ids.length}.
+
+Ejemplo:
+
+1
+`;
+
+                siguientePaso =
+                    "seleccionando_numero_vacante";
+
+                break;
+            }
+
+
+            const idVacante =
+                ids[numero - 1];
+
+
+            datosTemporales.vacante_seleccionada =
+                idVacante;
+
+
+            await actualizarDatosTemporales(
+                telefono,
+                datosTemporales
+            );
+
+
+            const vacante =
+                await obtenerVacantePorId(
+                    idVacante
+                );
+
+
+            if (!vacante) {
+
+                respuesta = `
+⚠️ No pudimos encontrar esa vacante.
+
+2️⃣ Nueva búsqueda
+6️⃣ Menú principal
+7️⃣ Salir
+`;
+
+                siguientePaso =
+                    "seleccionar_vacante";
+
+                break;
+            }
+
+
+            respuesta = `
+📋 *DETALLE DE VACANTE*
+
+💼 Puesto:
+${vacante.puesto}
+
+🏢 Empresa:
+${vacante.empresa}
+
+📍 Ubicación:
+${vacante.municipio}, ${vacante.entidad}
+
+🎓 Escolaridad:
+${vacante.nivel_estudios}
+
+📚 Experiencia:
+${vacante.experiencia || "No especificada"}
+
+💰 Salario:
+$${vacante.salario || "No especificado"}
+
+👥 Plazas disponibles:
+${vacante.numero_plazas || "No especificado"}
+
+¿Qué deseas hacer?
+
+1️⃣ Postularme
+2️⃣ Buscar otra vacante
+6️⃣ Menú principal
+7️⃣ Salir
+`;
+
+            siguientePaso =
+                "detalle_vacante";
+
+            break;
+        }
+    }
+
+
+
+    if (!respuesta || !respuesta.trim()) {
+
+        console.error(
+            "❌ procesarVacantes generó una respuesta vacía."
+        );
+
+        respuesta = `
+⚠️ Ocurrió un problema al procesar tu opción.
+
+Regresaremos al menú principal.
+
+6️⃣ Menú principal
+7️⃣ Salir
+`;
+
+        siguientePaso = "menu";
+    }
+
+
+    return {
+        respuesta,
+        siguientePaso
+    };
+}
+
+
+module.exports = {
+    procesarVacantes
+};
+
+-----------------------------
+chatbot service
+const {
+    reiniciarSesion
+} = require("./sesion.service");
+
+
+const {
+    procesarMenu
+} = require("../flows/menu.flow");
+
+
+const {
+    procesarRegistro
+} = require("../flows/registro.flow");
+
+
+const {
+    procesarActualizacion
+} = require("../flows/actualizacion.flow");
+
+
+const {
+    procesarVacantes
+} = require("../flows/vacantes.flow");
+
+
+const {
+    procesarPerfil
+} = require("../flows/perfil.flow");
+
+
+const {
+    procesarFolio
+} = require("../flows/folio.flow");
+
+
+async function procesarMensaje(
+    sesion,
+    mensaje,
+    telefono
+) {
+
+    let respuesta = "";
+
+    let siguientePaso =
+        sesion.paso_actual;
+
+
+    mensaje =
+        String(mensaje ?? "").trim();
+
+
+    const comando =
+        mensaje.toLowerCase();
+
+    if (
+        comando === "7" ||
+        comando === "salir" ||
+        comando === "cancelar"
+    ) {
+
+        await reiniciarSesion(telefono);
+
+        return {
+            respuesta:
+`👋 Gracias por utilizar el Asistente SNE.
+
+Hasta pronto.`,
+
+            siguientePaso: "finalizado"
+        };
+
+    }
+
+    if (
+        comando === "menu" ||
+        comando === "inicio"
+    ) {
+
+        return {
+            respuesta:
+`👋 Bienvenido al Asistente SNE
+
+¿Qué deseas hacer?
+
+1️⃣ Buscar vacantes
+2️⃣ Registrar mis datos
+3️⃣ Actualizar mis datos
+4️⃣ Consultar mi folio
+5️⃣ Hablar con un asesor
+6️⃣ Menú principal
+7️⃣ Salir`,
+
+            siguientePaso: "menu"
+        };
+
+    }
+
+
+    switch (sesion.paso_actual) {
+
+
+
+        case "inicio":
+
+            respuesta =
+`👋 Hola, soy el asistente del SNE.
+
+¿En qué puedo ayudarte?
+
+1️⃣ Buscar vacantes
+2️⃣ Registrar mis datos
+3️⃣ Actualizar mis datos
+4️⃣ Consultar mi folio
+5️⃣ Hablar con un asesor
+6️⃣ Menú principal
+7️⃣ Salir`;
+
+            siguientePaso = "menu";
+
+            break;
+
+
+
+        case "menu": {
+
+            const resultado =
+                await procesarMenu(
+                    mensaje,
+                    telefono,
+                    sesion
+                );
+
+            respuesta =
+                resultado.respuesta;
+
+            siguientePaso =
+                resultado.siguientePaso;
+
+            break;
+        }
+
+
+        case "esperando_curp":
+        case "esperando_codigo_seguridad":
+        case "esperando_nombre":
+        case "esperando_fecha":
+        case "esperando_sexo":
+        case "esperando_correo":
+        case "esperando_codigo_postal": {
+
+            const resultado =
+                await procesarRegistro(
+                    sesion,
+                    mensaje,
+                    telefono
+                );
+
+            respuesta =
+                resultado.respuesta;
+
+            siguientePaso =
+                resultado.siguientePaso;
+
+            break;
+        }
+
+
+        case "seleccionar_actualizacion":
+case "actualizar_correo":
+case "actualizar_codigo_postal": {
+
+    const resultado =
+        await procesarActualizacion(
+            sesion,
+            mensaje,
+            telefono
+        );
+
+    respuesta =
+        resultado.respuesta;
+
+    siguientePaso =
+        resultado.siguientePaso;
+
+    break;
+}
+
+
+        case "confirmar_completar_perfil":
+        case "esperando_colonia":
+        case "esperando_carrera":
+        case "esperando_experiencia":
+        case "perfil_licencia":
+        case "perfil_vehiculo":
+        case "perfil_viajar":
+        case "perfil_horario":
+        case "perfil_sueldo": {
+
+            const resultado =
+                await procesarPerfil(
+                    sesion,
+                    mensaje,
+                    telefono
+                );
+
+            respuesta =
+                resultado.respuesta;
+
+            siguientePaso =
+                resultado.siguientePaso;
+
+            break;
+        }
+
+
+        case "esperando_escolaridad":
+        case "esperando_codigo_postal_busqueda":    
+        case "buscar_puesto":
+        case "seleccionar_vacante":
+        case "seleccionando_numero_vacante":
+        case "detalle_vacante": {
+
+            const resultado =
+                await procesarVacantes(
+                    sesion,
+                    mensaje,
+                    telefono
+                );
+
+            respuesta =
+                resultado.respuesta;
+
+            siguientePaso =
+                resultado.siguientePaso;
+
+            break;
+        }
+
+
+        case "consultar_folio":
+        case "folio_opciones":
+        case "buscar_vacantes":
+        case "opciones_vacantes":
+        case "perfil_ya_completo": {
+
+            const resultado =
+                await procesarFolio(
+                    sesion,
+                    mensaje,
+                    telefono
+                );
+
+            respuesta =
+                resultado.respuesta;
+
+            siguientePaso =
+                resultado.siguientePaso;
+
+            break;
+        }
+
+
+
+        case "finalizado":
+
+            respuesta =
+`👋 Esta conversación ha finalizado.
+
+Escribe "inicio" para volver a comenzar.`;
+
+            siguientePaso =
+                "finalizado";
+
+            break;
+
+
+        default:
+
+            respuesta =
+`⚠️ No entendí tu mensaje.
+
+Por favor, escribe "inicio" para volver al menú principal.`;
+
+            siguientePaso =
+                "menu";
+
+            break;
+
+    }
+
+
+    return {
+        respuesta,
+        siguientePaso
+    };
+
+}
+
+module.exports = {
+    procesarMensaje
+};
+----------------------------------------
+WhatsAppservice
+
+const axios = require("axios");
+
+
+async function enviarMensajeWhatsApp(telefono, mensaje) {
+
+    try {
+
+        const phoneNumberId =
+            process.env.WHATSAPP_PHONE_NUMBER_ID;
+
+        const accessToken =
+            process.env.WHATSAPP_ACCESS_TOKEN;
+
+
+        const url =
+            `https://graph.facebook.com/v25.0/${phoneNumberId}/messages`;
+
+
+        const respuesta = await axios.post(
+
+            url,
+
+            {
+                messaging_product: "whatsapp",
+
+                to: telefono,
+
+                type: "text",
+
+                text: {
+                    body: mensaje
+                }
+            },
+
+            {
+                headers: {
+                    Authorization:
+                        `Bearer ${accessToken}`,
+
+                    "Content-Type":
+                        "application/json"
+                }
+            }
+
+        );
+
+
+        console.log(
+            "🟢 Mensaje enviado por WhatsApp"
+        );
+
+
+        console.log(
+            JSON.stringify(
+                respuesta.data,
+                null,
+                2
+            )
+        );
+
+
+        return respuesta.data;
+
+
+    } catch (error) {
+
+        console.error(
+            "🔴 Error enviando mensaje por WhatsApp:"
+        );
+
+
+        console.error(
+            error.response?.data ||
+            error.message
+        );
+
+
+        throw error;
+
+    }
+
+}
+
+
+module.exports = {
+    enviarMensajeWhatsApp
+};
+
+
+-----------------------------------------------
+whatsapp controller 
+const db = require("../config/database");
+
+const {
+    obtenerSesion,
+    crearSesion,
+    actualizarPaso
+} = require("../services/sesion.service");
+
+
+const {
+    procesarMensaje
+} = require("../services/chatbot.service");
+
+
+const {
+    enviarMensajeWhatsApp
+} = require("../services/whatsapp.service");
+
+
+exports.verificarWebhook = (req, res) => {
+
+    const modo =
+        req.query["hub.mode"];
+
+    const token =
+        req.query["hub.verify_token"];
+
+    const challenge =
+        req.query["hub.challenge"];
+
+
+    if (
+        modo === "subscribe" &&
+        token === process.env.WHATSAPP_VERIFY_TOKEN
+    ) {
+
+        console.log(
+            "🟢 Webhook de WhatsApp verificado correctamente"
+        );
+
+        return res
+            .status(200)
+            .send(challenge);
+    }
+
+
+    console.log(
+        "🔴 Error al verificar webhook"
+    );
+
+    return res.sendStatus(403);
+
+};
+
+
+exports.recibirWebhook = async (req, res) => {
+
+    try {
+
+        console.log(
+            "📩 Evento recibido de WhatsApp:"
+        );
+
+
+        console.log(
+            JSON.stringify(
+                req.body,
+                null,
+                2
+            )
+        );
+
+
+
+        res.sendStatus(200);
+
+
+        const entrada =
+            req.body?.entry?.[0];
+
+        const cambio =
+            entrada?.changes?.[0];
+
+        const valor =
+            cambio?.value;
+
+
+        if (!valor) {
+
+            console.log(
+                "ℹ️ Evento sin información de WhatsApp"
+            );
+
+            return;
+
+        }
+
+
+        const mensaje =
+            valor.messages?.[0];
+
+
+        // Si no es un mensaje, probablemente sea
+        // un evento de estado
+        if (!mensaje) {
+
+            console.log(
+                "ℹ️ Evento de estado recibido"
+            );
+
+            return;
+
+        }
+
+
+        if (
+            mensaje.type !== "text"
+        ) {
+
+            console.log(
+                `ℹ️ Tipo de mensaje no soportado: ${mensaje.type}`
+            );
+
+            return;
+
+        }
+
+
+        const telefono =
+            mensaje.from;
+
+        const texto =
+            mensaje.text?.body;
+
+
+        console.log(
+            "📱 Teléfono:",
+            telefono
+        );
+
+
+        console.log(
+            "💬 Mensaje:",
+            texto
+        );
+
+
+        let sesion =
+            await obtenerSesion(telefono);
+
+
+        if (!sesion) {
+
+            console.log(
+                "🆕 Creando nueva sesión..."
+            );
+
+
+            sesion =
+                await crearSesion(
+                    telefono
+                );
+
+        }
+
+
+        const resultado =
+            await procesarMensaje(
+                sesion,
+                texto,
+                telefono
+            );
+
+
+        console.log(
+            "🤖 Respuesta del chatbot:"
+        );
+
+
+        console.log(
+            resultado.respuesta
+        );
+
+
+        await actualizarPaso(
+            telefono,
+            resultado.siguientePaso
+        );
+
+        await db.query(`
+    INSERT INTO conversaciones
+    (telefono, mensaje, respuesta)
+    VALUES ($1, $2, $3)
+`, [
+    telefono,
+    texto,
+    resultado.respuesta
+]);
+
+
+        await enviarMensajeWhatsApp(
+            telefono,
+            resultado.respuesta
+        );
+
+
+        console.log(
+            "✅ Flujo completo ejecutado"
+        );
+
+
+    } catch (error) {
+
+        console.error(
+            "🔴 Error procesando webhook:"
+        );
+
+
+        console.error(
+            error.response?.data ||
+            error.message ||
+            error
+        );
+
+    }
+
+};
+
+--------------------------------------
+postulaciones service
+const db = require("../config/database");
+
+
+async function crearPostulacion(
+    buscadorId,
+    vacanteId
+) {
+
+    const resultado = await db.query(
+        `
+        INSERT INTO postulaciones
+        (
+            buscador_id,
+            vacante_id
+        )
+        VALUES ($1, $2)
+        ON CONFLICT (buscador_id, vacante_id)
+        DO NOTHING
+        RETURNING *
+        `,
+        [
+            buscadorId,
+            vacanteId
+        ]
+    );
+
+    return resultado.rows[0] || null;
+}
+
+
+async function obtenerPostulacionesPorBuscador(
+    buscadorId
+) {
+
+    const resultado = await db.query(
+        `
+        SELECT
+            p.id,
+            p.fecha_postulacion,
+            p.estado,
+
+            v.id AS vacante_id,
+            v.folio_oferta,
+            v.puesto,
+            v.empresa,
+            v.municipio,
+            v.entidad,
+            v.salario
+
+        FROM postulaciones p
+
+        INNER JOIN vacantes v
+            ON v.id = p.vacante_id
+
+        WHERE p.buscador_id = $1
+
+        ORDER BY p.fecha_postulacion DESC
+        `,
+        [
+            buscadorId
+        ]
+    );
+
+    return resultado.rows;
+}
+
+
+module.exports = {
+    crearPostulacion,
+    obtenerPostulacionesPorBuscador
+};
+
+
+Algo importante para tu proyecto
+
+Esto no afecta tu flujo de registro, búsqueda de vacantes o postulaciones cuando el usuario está interactuando activamente.
+
+Más adelante, cuando quieras hacer cosas como:
+
+"Hola Juan, encontramos nuevas vacantes para ti."
+
+sin que Juan haya escrito primero, ahí sí tendrás que utilizar plantillas de WhatsApp aprobadas.
+

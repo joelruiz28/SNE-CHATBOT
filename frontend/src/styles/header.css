@@ -1,0 +1,334 @@
+@import "./theme.css";
+
+.header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+
+    width: 100%;
+    box-sizing: border-box;
+
+    background: var(--sne-surface);
+    border-bottom: 1px solid var(--sne-line);
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 32px;
+
+    padding: 16px 28px 15px;
+
+    font-family: var(--font-ui);
+}
+
+.header::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -1px;
+    height: 2px;
+
+    background: linear-gradient(
+        90deg,
+        transparent,
+        var(--sne-gold) 18%,
+        var(--sne-gold) 82%,
+        transparent
+    );
+
+    opacity: 0.55;
+    pointer-events: none;
+}
+
+/* --- Título --- */
+
+.header-title-group {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+}
+
+.header-badge {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+
+    background: var(--sne-forest);
+    color: var(--sne-gold-soft);
+
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.14);
+}
+
+.header-title {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+
+    animation: header-fade-in 0.32s ease both;
+}
+
+.header-eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--sne-gold);
+}
+
+.header-eyebrow::before {
+    content: "";
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--sne-gold);
+    flex-shrink: 0;
+}
+
+.header-title h1 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 24px;
+    letter-spacing: -0.01em;
+    color: var(--sne-ink);
+}
+
+.header-title p {
+    margin: 0;
+    font-size: 13.5px;
+    color: var(--sne-gray);
+
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 46ch;
+}
+
+@keyframes header-fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(3px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .header-title {
+        animation: none;
+    }
+}
+
+
+/* --- Acciones --- */
+
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-shrink: 0;
+}
+
+/* --- Notificaciones --- */
+
+.notification-button {
+    position: relative;
+
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    border: 1px solid var(--sne-line);
+    background: var(--sne-cream);
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--sne-forest);
+    cursor: pointer;
+
+    transition: background 0.18s ease, border-color 0.18s ease,
+        transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.notification-button:hover {
+    background: var(--sne-gold-light);
+    border-color: var(--sne-gold);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+}
+
+.notification-button:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--sne-gold-light), 0 0 0 1px var(--sne-gold);
+}
+
+.notification-button:active {
+    transform: translateY(0);
+}
+
+.notification-dot {
+    position: absolute;
+    top: 8px;
+    right: 9px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--sne-gold);
+    box-shadow: 0 0 0 2px var(--sne-cream);
+}
+
+.notification-dot::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: var(--sne-gold);
+    animation: notification-ping 2.4s ease-out infinite;
+}
+
+@keyframes notification-ping {
+    0% {
+        transform: scale(1);
+        opacity: 0.65;
+    }
+    75%, 100% {
+        transform: scale(2.4);
+        opacity: 0;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .notification-dot::after {
+        animation: none;
+    }
+}
+
+
+/* --- Usuario --- */
+
+.header-user {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 8px 6px 16px;
+    margin-left: 2px;
+
+    border-left: 1px solid var(--sne-line);
+    border-radius: 999px;
+
+    cursor: pointer;
+    transition: background 0.18s ease;
+}
+
+.header-user:hover {
+    background: var(--sne-cream);
+}
+
+.header-avatar {
+    position: relative;
+
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    flex-shrink: 0;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    background: linear-gradient(150deg, var(--sne-forest), #16302b);
+    box-shadow: 0 0 0 2px var(--sne-gold-light), 0 2px 6px rgba(0, 0, 0, 0.12);
+
+    color: var(--sne-gold-soft);
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.header-avatar-status {
+    position: absolute;
+    bottom: -1px;
+    right: -1px;
+
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+
+    background: #3fa876;
+    box-shadow: 0 0 0 2px var(--sne-surface);
+}
+
+.header-user-info {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.25;
+}
+
+.header-user-info strong {
+    font-size: 13.5px;
+    color: var(--sne-ink);
+    font-weight: 600;
+}
+
+.header-user-info span {
+    font-size: 11.5px;
+    color: var(--sne-gray);
+}
+
+.header-user-caret {
+    display: flex;
+    color: var(--sne-gray);
+    transition: transform 0.18s ease;
+}
+
+.header-user:hover .header-user-caret {
+    transform: translateY(1px);
+    color: var(--sne-forest);
+}
+
+
+.header-topo {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -6px;
+    opacity: 0.9;
+}
+
+
+/* --- Responsive --- */
+
+@media (max-width: 720px) {
+    .header-user-info {
+        display: none;
+    }
+
+    .header-user {
+        padding-right: 4px;
+    }
+
+    .header-title p {
+        display: none;
+    }
+}
+
+@media (max-width: 480px) {
+    .header-badge {
+        display: none;
+    }
+}

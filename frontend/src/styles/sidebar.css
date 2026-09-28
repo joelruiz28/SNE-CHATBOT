@@ -1,0 +1,131 @@
+@import "./theme.css";
+
+.sidebar {
+    width: var(--sidebar-w);
+    min-height: 100vh;
+
+    background: linear-gradient(180deg, var(--sne-forest) 0%, var(--sne-forest-dark) 100%);
+    border-right: 1px solid var(--sne-forest-dark);
+
+    display: flex;
+    flex-direction: column;
+
+    padding: 22px 14px 20px;
+
+    position: fixed;
+    left: 0;
+    top: 0;
+
+    font-family: var(--font-ui);
+}
+
+/* --- Logo --- */
+
+.sidebar-logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    padding: 16px 10px 38px;
+}
+
+.sidebar-mark {
+    flex-shrink: 0;
+    width: 86px;
+    height: 86px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1.5px solid var(--sne-gold);
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.25));
+}
+
+.sidebar-wordmark h2 {
+    margin: 0;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 21px;
+    letter-spacing: 0.3px;
+    color: #fdfaf3;
+}
+
+.sidebar-wordmark span {
+    display: block;
+    margin-top: 2px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    color: var(--sne-gold-soft);
+}
+
+.sidebar-topo {
+    opacity: 0.9;
+    margin-bottom: 18px;
+}
+
+/* --- Menú --- */
+
+.sidebar-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.menu-item {
+    width: 100%;
+    box-sizing: border-box;
+
+    border: none;
+    background: transparent;
+
+    padding: 11px 14px;
+
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    border-radius: var(--radius-sm);
+
+    cursor: pointer;
+    text-decoration: none;
+
+    font-size: 88x;
+    font-weight: 500;
+    color: #cfd9d2;
+
+    transition: background 0.18s ease, color 0.18s ease;
+}
+
+.menu-icon {
+    display: flex;
+    color: var(--sne-gold-soft);
+    opacity: 0.85;
+    transition: color 0.18s ease, opacity 0.18s ease;
+}
+
+.menu-item:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: #ffffff;
+}
+
+.menu-item:hover .menu-icon {
+    opacity: 1;
+}
+
+/* Ítem activo: pill completo, redondeado en las 4 esquinas,
+   igual que en la referencia visual (sin borde lateral) */
+.menu-item.active {
+    background: rgba(255, 255, 255, 0.14);
+    color: #ffffff;
+    font-weight: 700;
+}
+
+.menu-item.active .menu-icon {
+    color: var(--sne-gold);
+    opacity: 1;
+}
+
+.sidebar-footer {
+    margin-top: auto;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
