@@ -1,9 +1,6 @@
 const db = require("../config/database");
 
 
-// =====================================================
-// RESUMEN GENERAL
-// =====================================================
 
 async function obtenerResumenReportes() {
 
@@ -100,9 +97,6 @@ async function obtenerResumenReportes() {
 }
 
 
-// =====================================================
-// PERSONAS POR MUNICIPIO
-// =====================================================
 
 async function obtenerPersonasPorMunicipio() {
 
@@ -128,9 +122,6 @@ async function obtenerPersonasPorMunicipio() {
 }
 
 
-// =====================================================
-// PUESTOS MÁS SOLICITADOS
-// =====================================================
 
 async function obtenerPuestosMasSolicitados() {
 
@@ -158,10 +149,6 @@ async function obtenerPuestosMasSolicitados() {
 }
 
 
-// =====================================================
-// VACANTES POR MUNICIPIO
-// =====================================================
-
 async function obtenerVacantesPorMunicipio() {
 
     const resultado = await db.query(`
@@ -186,10 +173,6 @@ async function obtenerVacantesPorMunicipio() {
 }
 
 
-// =====================================================
-// VACANTES POR ÁREA
-// =====================================================
-
 async function obtenerVacantesPorArea() {
 
     const resultado = await db.query(`
@@ -213,10 +196,6 @@ async function obtenerVacantesPorArea() {
     }));
 }
 
-
-// =====================================================
-// EMPRESAS CON MÁS VACANTES
-// =====================================================
 
 async function obtenerEmpresasConMasVacantes() {
 
@@ -262,9 +241,6 @@ async function obtenerEmpresasConMasVacantes() {
 }
 
 
-// =====================================================
-// DEMANDA VS OFERTA POR PUESTO
-// =====================================================
 
 async function obtenerDemandaVsOferta() {
 
@@ -348,9 +324,7 @@ async function obtenerDemandaVsOferta() {
     });
 }
 
-// =====================================================
-// DASHBOARD GENERAL DE REPORTES
-// =====================================================
+
 
 async function obtenerDashboardReportes() {
 
@@ -378,9 +352,6 @@ async function obtenerDashboardReportes() {
     ]);
 
 
-    // =================================================
-    // ALERTAS
-    // =================================================
 
     const personasSinVacante =
         demandaOferta.filter(
@@ -414,9 +385,6 @@ async function obtenerDashboardReportes() {
         ).length;
 
 
-    // =================================================
-    // DEVOLVER DASHBOARD
-    // =================================================
 
     return {
 

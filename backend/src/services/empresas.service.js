@@ -1,9 +1,6 @@
 const db = require("../config/database");
 
 
-// =====================================================
-// OBTENER EMPRESAS
-// =====================================================
 
 async function obtenerEmpresas() {
 
@@ -32,9 +29,6 @@ async function obtenerEmpresas() {
 }
 
 
-// =====================================================
-// OBTENER DETALLE DE UNA EMPRESA
-// =====================================================
 
 async function obtenerEmpresaPorNombre(nombre) {
 
@@ -67,10 +61,6 @@ async function obtenerEmpresaPorNombre(nombre) {
     return resultado.rows;
 }
 
-
-// =====================================================
-// ESTADÍSTICAS DE EMPRESAS
-// =====================================================
 
 async function obtenerEstadisticasEmpresas() {
 

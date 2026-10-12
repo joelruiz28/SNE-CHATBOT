@@ -558,7 +558,6 @@ ${vacante.folio_oferta || "No especificado"}
 }
 
 
-
 async function crearBuscadorCompleto(
     datos,
     telefono
@@ -605,6 +604,7 @@ async function crearBuscadorCompleto(
                     sexo,
                     correo,
                     codigo_postal,
+                    perfil_completo,
                     fecha_registro
                 )
                 VALUES
@@ -616,6 +616,7 @@ async function crearBuscadorCompleto(
                     $5,
                     $6,
                     $7,
+                    true,
                     CURRENT_TIMESTAMP
                 )
                 RETURNING *
@@ -645,25 +646,26 @@ async function crearBuscadorCompleto(
         const folio =
             `SNE-${anio}-${consecutivo}`;
 
-        await cliente.query(
-            `
-            UPDATE buscadores_empleo
-            SET folio = $1
-            WHERE id = $2
-            `,
-            [
-                folio,
-                buscador.id
-            ]
-        );
+        const resultadoFolio =
+            await cliente.query(
+                `
+                UPDATE buscadores_empleo
+                SET folio = $1
+                WHERE id = $2
+                RETURNING *
+                `,
+                [
+                    folio,
+                    buscador.id
+                ]
+            );
 
         await cliente.query(
             "COMMIT"
         );
 
         return {
-            ...buscador,
-            folio
+            ...resultadoFolio.rows[0]
         };
 
     } catch (error) {
@@ -682,8 +684,11 @@ async function crearBuscadorCompleto(
     } finally {
 
         cliente.release();
+
     }
 }
+
+
 
 async function actualizarBuscadorCompletoPorId(id, datos) {
     const cliente = await db.connect();

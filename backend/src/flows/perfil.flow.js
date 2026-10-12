@@ -27,10 +27,6 @@ async function procesarPerfil(
     switch (sesion.paso_actual) {
 
 
-        // ==========================================
-        // CONFIRMAR COMPLETAR PERFIL
-        // ==========================================
-
         case "confirmar_completar_perfil":
 
             if (mensaje === "1") {

@@ -8,9 +8,6 @@ const {
 } = require("../controllers/dashboard.controller");
 
 
-// ==========================================
-// RUTA DEL DASHBOARD
-// ==========================================
 
 router.get(
     "/",

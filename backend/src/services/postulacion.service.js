@@ -125,12 +125,35 @@ async function obtenerDatosComprobante(
     return resultado.rows[0] || null;
 }
 
+async function obtenerPostulacionPorBuscadorYVacante(
+    buscadorId,
+    vacanteId
+) {
+
+    const resultado = await db.query(
+        `
+        SELECT *
+        FROM postulaciones
+        WHERE buscador_id = $1
+          AND vacante_id = $2
+        LIMIT 1
+        `,
+        [
+            buscadorId,
+            vacanteId
+        ]
+    );
+
+    return resultado.rows[0] || null;
+}
 
 module.exports = {
 
     crearPostulacion,
 
     obtenerPostulacionesPorBuscador,
+
+    obtenerPostulacionPorBuscadorYVacante,
 
     obtenerDatosComprobante
 

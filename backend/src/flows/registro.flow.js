@@ -1,3 +1,4 @@
+
 const {
     buscarPorCURP,
     crearBuscadorCompleto,
@@ -10,7 +11,9 @@ const {
 } = require("../services/sesion.service");
 
 const {
-    enviarMensajeWhatsApp
+    enviarMensajeWhatsApp,
+    subirDocumentoWhatsApp,
+    enviarDocumentoWhatsApp
 } = require("../services/whatsapp.service");
 
 const {
@@ -20,8 +23,14 @@ const {
 } = require("../utils/validaciones");
 
 const {
-    crearPostulacion
+    crearPostulacion,
+    obtenerPostulacionPorBuscadorYVacante,
+    obtenerDatosComprobante
 } = require("../services/postulacion.service");
+
+const {
+    generarComprobantePostulacion
+} = require("../services/comprobante.service");
 
 const {
     sexo
@@ -32,9 +41,9 @@ const {
 } = require("../utils/menu");
 
 
-// =====================================================
-// GENERAR CÓDIGO DE SEGURIDAD
-// =====================================================
+// ============================================================
+// CÓDIGO DE SEGURIDAD
+// ============================================================
 
 function generarCodigoSeguridad() {
 
@@ -44,6 +53,10 @@ function generarCodigoSeguridad() {
 
 }
 
+
+// ============================================================
+// OBTENER PRIMER DATO FALTANTE
+// ============================================================
 
 function obtenerPrimerDatoFaltante(usuario) {
 
@@ -70,6 +83,10 @@ function obtenerPrimerDatoFaltante(usuario) {
     return null;
 }
 
+
+// ============================================================
+// OBTENER SIGUIENTE PASO DEL PERFIL
+// ============================================================
 
 function obtenerSiguientePasoPerfil(usuario) {
 
@@ -165,9 +182,303 @@ Ejemplo:
     }
 }
 
-// =====================================================
+
+// ============================================================
+// GENERAR Y ENVIAR COMPROBANTE
+// ============================================================
+
+async function procesarPostulacionYComprobante(
+    buscadorId,
+    vacanteId,
+    telefono
+) {
+
+    try {
+
+        console.log(
+            "📝 Procesando postulación automática..."
+        );
+
+        console.log(
+            "🆔 Buscador:",
+            buscadorId
+        );
+
+        console.log(
+            "🆔 Vacante:",
+            vacanteId
+        );
+
+
+        // ----------------------------------------------------
+        // Crear postulación
+        // ----------------------------------------------------
+
+        let postulacion =
+            await crearPostulacion(
+                buscadorId,
+                vacanteId
+            );
+
+
+        /*
+         * Si devuelve null, normalmente significa que
+         * la postulación ya existía por el ON CONFLICT.
+         *
+         * En lugar de considerar que falló, buscamos
+         * la postulación existente.
+         */
+
+        if (!postulacion) {
+
+            console.log(
+                "ℹ️ La postulación ya existía. Buscando registro existente..."
+            );
+
+
+            postulacion =
+                await obtenerPostulacionPorBuscadorYVacante(
+                    buscadorId,
+                    vacanteId
+                );
+        }
+
+
+        if (!postulacion) {
+
+            console.error(
+                "🔴 No fue posible obtener la postulación."
+            );
+
+
+            return {
+                postulacionCreada: false,
+                comprobanteEnviado: false
+            };
+        }
+
+
+        console.log(
+            "✅ Postulación encontrada/creada correctamente."
+        );
+
+        console.log(
+            "🆔 ID de postulación:",
+            postulacion.id
+        );
+
+
+        // ----------------------------------------------------
+        // Obtener datos del comprobante
+        // ----------------------------------------------------
+
+        const datosComprobante =
+            await obtenerDatosComprobante(
+                postulacion.id
+            );
+
+
+        if (!datosComprobante) {
+
+            console.error(
+                "🔴 No se encontraron datos para generar el comprobante."
+            );
+
+
+            return {
+                postulacionCreada: true,
+                comprobanteEnviado: false,
+                postulacionId: postulacion.id
+            };
+        }
+
+
+        console.log(
+            "🟢 Datos del comprobante obtenidos correctamente."
+        );
+
+
+        // ----------------------------------------------------
+        // Generar PDF
+        // ----------------------------------------------------
+
+        const comprobante =
+            await generarComprobantePostulacion(
+                datosComprobante
+            );
+
+
+        console.log(
+            "🟢 Comprobante generado correctamente:"
+        );
+
+        console.log(
+            comprobante.rutaArchivo
+        );
+
+
+        // ----------------------------------------------------
+        // Subir PDF a WhatsApp
+        // ----------------------------------------------------
+
+        const mediaId =
+            await subirDocumentoWhatsApp(
+                comprobante.rutaArchivo
+            );
+
+
+        console.log(
+            "🟢 PDF subido correctamente a WhatsApp."
+        );
+
+
+        // ----------------------------------------------------
+        // Enviar PDF al usuario
+        // ----------------------------------------------------
+
+        await enviarDocumentoWhatsApp(
+
+            telefono,
+
+            mediaId,
+
+            comprobante.nombreArchivo,
+
+            "📄 Comprobante de postulación"
+
+        );
+
+
+        console.log(
+            "🟢 Comprobante enviado correctamente al usuario."
+        );
+
+
+        // ----------------------------------------------------
+        // Eliminar archivo temporal
+        // ----------------------------------------------------
+
+        const fs = require("fs");
+
+        fs.unlink(
+            comprobante.rutaArchivo,
+            (error) => {
+
+                if (error) {
+
+                    console.error(
+                        "⚠️ No se pudo eliminar el PDF temporal:",
+                        error.message
+                    );
+
+                } else {
+
+                    console.log(
+                        "🗑️ PDF temporal eliminado correctamente."
+                    );
+
+                }
+
+            }
+        );
+
+
+        return {
+            postulacionCreada: true,
+            comprobanteEnviado: true,
+            postulacionId: postulacion.id,
+            comprobante
+        };
+
+
+    } catch (error) {
+
+        /*
+         * IMPORTANTE:
+         *
+         * Si falla la generación, subida o envío del PDF,
+         * NO eliminamos ni revertimos la postulación.
+         *
+         * La postulación ya quedó registrada en PostgreSQL.
+         */
+
+        console.error(
+            "🔴 Error generando/enviando comprobante:"
+        );
+
+        console.error(
+            error.response?.data ||
+            error.message
+        );
+
+
+        return {
+            postulacionCreada: true,
+            comprobanteEnviado: false,
+            error
+        };
+    }
+}
+
+
+// ============================================================
+// PROCESAR POSTULACIÓN DESPUÉS DE COMPLETAR PERFIL
+// ============================================================
+
+async function finalizarPerfilYPostulacion(
+    buscador,
+    datosTemporales,
+    telefono
+) {
+
+    let postulacionAutomatica = false;
+    let comprobanteEnviado = false;
+
+
+    if (
+        datosTemporales.registro_desde_postulacion &&
+        datosTemporales.vacante_seleccionada
+    ) {
+
+        console.log(
+            "📝 El registro proviene de una postulación."
+        );
+
+
+        const resultado =
+            await procesarPostulacionYComprobante(
+
+                buscador.id,
+
+                datosTemporales.vacante_seleccionada,
+
+                telefono
+
+            );
+
+
+        if (resultado.postulacionCreada) {
+
+            postulacionAutomatica = true;
+
+            comprobanteEnviado =
+                resultado.comprobanteEnviado;
+
+        }
+
+    }
+
+
+    return {
+        postulacionAutomatica,
+        comprobanteEnviado
+    };
+}
+
+
+// ============================================================
 // PROCESAR REGISTRO
-// =====================================================
+// ============================================================
 
 async function procesarRegistro(
     sesion,
@@ -176,18 +487,21 @@ async function procesarRegistro(
 ) {
 
     let respuesta = "";
-let siguientePaso = sesion.paso_actual;
-let postulacionAutomatica = false;
 
-let datosTemporales =
-    sesion.datos_temporales || {};
+    let siguientePaso =
+        sesion.paso_actual;
+
+    let datosTemporales =
+        sesion.datos_temporales || {};
 
 
-    // =================================================
-    // LEER DATOS TEMPORALES
-    // =================================================
+    // --------------------------------------------------------
+    // Convertir datos temporales si vienen como string
+    // --------------------------------------------------------
 
-    if (typeof datosTemporales === "string") {
+    if (
+        typeof datosTemporales === "string"
+    ) {
 
         try {
 
@@ -206,16 +520,12 @@ let datosTemporales =
     }
 
 
-    // =================================================
-    // PROCESAR PASOS
-    // =================================================
-
     switch (sesion.paso_actual) {
 
 
-        // =============================================
-        // ESPERANDO CURP
-        // =============================================
+        // ====================================================
+        // CURP
+        // ====================================================
 
         case "esperando_curp": {
 
@@ -236,25 +546,19 @@ Verifica que tenga 18 caracteres e intenta nuevamente.`;
             }
 
 
-            // =========================================
-            // BUSCAR CURP
-            // =========================================
-
             const buscadorExistente =
                 await buscarPorCURP(curp);
 
 
-            // =========================================
-            // CURP YA EXISTE
-            // =========================================
+            // ------------------------------------------------
+            // CURP EXISTENTE
+            // ------------------------------------------------
 
             if (buscadorExistente) {
 
                 console.log(
                     "🔎 CURP encontrada:"
                 );
-
-                
 
                 console.log(
                     "🆔 CURP:",
@@ -272,33 +576,39 @@ Verifica que tenga 18 caracteres e intenta nuevamente.`;
                 );
 
 
-                
-if (
-    buscadorExistente.telefono ===
-    telefono
-) {
+                // --------------------------------------------
+                // MISMO TELÉFONO
+                // --------------------------------------------
 
-    // =====================================
-    // VERIFICAR SI EL PERFIL ESTÁ COMPLETO
-    // =====================================
+                if (
+                    buscadorExistente.telefono ===
+                    telefono
+                ) {
 
-    const perfilCompleto =
-        buscadorExistente.nombre_completo?.trim() &&
-        buscadorExistente.curp?.trim() &&
-        buscadorExistente.fecha_nacimiento &&
-        buscadorExistente.sexo?.trim() &&
-        buscadorExistente.telefono?.trim() &&
-        buscadorExistente.correo?.trim() &&
-        buscadorExistente.codigo_postal?.trim();
+                    const perfilCompleto =
+
+                        buscadorExistente.nombre_completo?.trim() &&
+
+                        buscadorExistente.curp?.trim() &&
+
+                        buscadorExistente.fecha_nacimiento &&
+
+                        buscadorExistente.sexo?.trim() &&
+
+                        buscadorExistente.telefono?.trim() &&
+
+                        buscadorExistente.correo?.trim() &&
+
+                        buscadorExistente.codigo_postal?.trim();
 
 
-    // =====================================
-    // PERFIL COMPLETO
-    // =====================================
+                    // ----------------------------------------
+                    // PERFIL COMPLETO
+                    // ----------------------------------------
 
-    if (perfilCompleto) {
+                    if (perfilCompleto) {
 
-        respuesta =
+                        respuesta =
 `✅ Tu CURP ya se encuentra registrada en el Sistema Nacional de Empleo.
 
 📄 Folio:
@@ -313,97 +623,92 @@ Tus datos ya se encuentran registrados.
 2️⃣ Ver mis datos
 3️⃣ Menú principal`;
 
-        siguientePaso =
-            "menu";
+
+                        siguientePaso =
+                            "menu";
 
 
-    } else {
+                    } else {
 
-    // =====================================
-    // PERFIL INCOMPLETO
-    // =====================================
+                        // ------------------------------------
+                        // PERFIL INCOMPLETO
+                        // ------------------------------------
 
-    datosTemporales.curp =
-        curp;
+                        datosTemporales.curp =
+                            curp;
 
-    datosTemporales.usuario_existente_id =
-        buscadorExistente.id;
+                        datosTemporales.usuario_existente_id =
+                            buscadorExistente.id;
 
-    datosTemporales.completando_perfil =
-        true;
-
-
-    // =====================================
-    // DETECTAR DATO FALTANTE
-    // =====================================
-
-    const siguiente =
-        obtenerSiguientePasoPerfil(
-            buscadorExistente
-        );
+                        datosTemporales.completando_perfil =
+                            true;
 
 
-    await actualizarDatosTemporales(
-        telefono,
-        datosTemporales
-    );
+                        const siguiente =
+                            obtenerSiguientePasoPerfil(
+                                buscadorExistente
+                            );
 
 
-    if (siguiente) {
+                        if (siguiente) {
 
-        console.log(
-            "📋 Dato faltante:",
-            siguiente.dato
-        );
+                            console.log(
+                                "📋 Dato faltante:",
+                                siguiente.dato
+                            );
 
-        datosTemporales.dato_perfil_actual =
-            siguiente.dato;
 
-        await actualizarDatosTemporales(
-            telefono,
-            datosTemporales
-        );
+                            datosTemporales.dato_perfil_actual =
+                                siguiente.dato;
 
-        respuesta =
-            siguiente.respuesta;
 
-        siguientePaso =
-            siguiente.paso;
+                            await actualizarDatosTemporales(
+                                telefono,
+                                datosTemporales
+                            );
 
-    } else {
 
-        respuesta = `
+                            respuesta =
+                                siguiente.respuesta;
+
+
+                            siguientePaso =
+                                siguiente.paso;
+
+                        } else {
+
+                            respuesta =
+`
 ✅ Tu perfil ya está completo.
 `;
 
-        siguientePaso =
-            "menu";
-    }
-}
+                            siguientePaso =
+                                "menu";
+                        }
+                    }
 
 
-    break;
-}
+                    break;
+                }
 
 
-                // =====================================
-                // TELÉFONO DIFERENTE
-                // =====================================
+                // --------------------------------------------
+                // CURP DE OTRO TELÉFONO
+                // --------------------------------------------
 
                 console.log(
                     "⚠️ La CURP pertenece a otro número."
-                    
                 );
-                
 
 
                 const codigo =
                     generarCodigoSeguridad();
 
-                    console.log(
-                   "🔐 CÓDIGO DE SEGURIDAD:",
+
+                console.log(
+                    "🔐 CÓDIGO DE SEGURIDAD:",
                     codigo
-                     );
+                );
 
 
                 const expiracion =
@@ -429,19 +734,11 @@ Tus datos ya se encuentran registrados.
                 };
 
 
-                // =====================================
-                // GUARDAR DATOS TEMPORALES
-                // =====================================
-
                 await actualizarDatosTemporales(
                     telefono,
                     datosTemporales
                 );
 
-
-                // =====================================
-                // ENVIAR CÓDIGO AL TELÉFONO ORIGINAL
-                // =====================================
 
                 try {
 
@@ -475,6 +772,7 @@ Si tú no realizaste esta solicitud, puedes ignorar este mensaje.`
                         buscadorExistente.telefono
                     );
 
+
                 } catch (error) {
 
                     console.error(
@@ -486,7 +784,6 @@ Si tú no realizaste esta solicitud, puedes ignorar este mensaje.`
                     );
 
 
-                    // Limpiamos datos temporales
                     await actualizarDatosTemporales(
                         telefono,
                         {}
@@ -498,16 +795,14 @@ Si tú no realizaste esta solicitud, puedes ignorar este mensaje.`
 
 Por favor intenta nuevamente más tarde.`;
 
+
                     siguientePaso =
                         "menu";
+
 
                     break;
                 }
 
-
-                // =====================================
-                // RESPUESTA AL NUEVO NÚMERO
-                // =====================================
 
                 respuesta =
 `🔐 *Verificación de seguridad*
@@ -522,18 +817,21 @@ Escribe el código de 6 dígitos para continuar.
 
 ⏱️ El código es válido durante 10 minutos.`;
 
+
                 siguientePaso =
                     "esperando_codigo_seguridad";
+
 
                 break;
             }
 
 
-            // =========================================
+            // ------------------------------------------------
             // CURP NUEVA
-            // =========================================
+            // ------------------------------------------------
 
-            datosTemporales.curp = curp;
+            datosTemporales.curp =
+                curp;
 
 
             await actualizarDatosTemporales(
@@ -547,274 +845,245 @@ Escribe el código de 6 dígitos para continuar.
 
 ¿Cuál es tu nombre completo?`;
 
+
             siguientePaso =
                 "esperando_nombre";
+
 
             break;
         }
 
 
-// =============================================
-// ESPERANDO CÓDIGO DE SEGURIDAD
-// =============================================
+        // ====================================================
+        // CÓDIGO DE SEGURIDAD
+        // ====================================================
 
-case "esperando_codigo_seguridad": {
+        case "esperando_codigo_seguridad": {
 
-    const codigoIngresado =
-        mensaje
-            .trim()
-            .replace(/\s/g, "");
+            const codigoIngresado =
+                mensaje
+                    .trim()
+                    .replace(/\s/g, "");
 
 
-    // =========================================
-    // VALIDAR FORMATO
-    // =========================================
+            if (
+                !/^\d{6}$/.test(
+                    codigoIngresado
+                )
+            ) {
 
-    if (
-        !/^\d{6}$/.test(
-            codigoIngresado
-        )
-    ) {
-
-        respuesta =
+                respuesta =
 `⚠️ El código debe contener 6 números.
 
 Escribe el código de seguridad que fue enviado al número registrado.`;
 
-        break;
-    }
+
+                break;
+            }
 
 
-    // =========================================
-    // VERIFICAR EXISTENCIA DEL CÓDIGO
-    // =========================================
+            if (
+                !datosTemporales.codigo_seguridad ||
+                !datosTemporales.codigo_expira
+            ) {
 
-    if (
-        !datosTemporales.codigo_seguridad ||
-        !datosTemporales.codigo_expira
-    ) {
-
-        respuesta =
+                respuesta =
 `⚠️ No encontramos un código de seguridad activo.
 
 Inicia nuevamente el proceso desde el menú principal.`;
 
-        siguientePaso =
-            "menu";
 
-        break;
-    }
+                siguientePaso =
+                    "menu";
 
 
-    // =========================================
-    // VERIFICAR EXPIRACIÓN
-    // =========================================
-
-    if (
-        Date.now() >
-        Number(
-            datosTemporales.codigo_expira
-        )
-    ) {
-
-        console.log(
-            "⏱️ Código de seguridad expirado."
-        );
+                break;
+            }
 
 
-        await actualizarDatosTemporales(
-            telefono,
-            {}
-        );
+            if (
+                Date.now() >
+                Number(
+                    datosTemporales.codigo_expira
+                )
+            ) {
+
+                console.log(
+                    "⏱️ Código de seguridad expirado."
+                );
 
 
-        respuesta =
+                await actualizarDatosTemporales(
+                    telefono,
+                    {}
+                );
+
+
+                respuesta =
 `⏱️ El código de seguridad ha expirado.
 
 Por seguridad, debes iniciar nuevamente el proceso.`;
 
-        siguientePaso =
-            "menu";
 
-        break;
-    }
+                siguientePaso =
+                    "menu";
 
 
-    // =========================================
-    // VERIFICAR INTENTOS
-    // =========================================
-
-    const intentos =
-        Number(
-            datosTemporales.intentos_codigo || 0
-        );
+                break;
+            }
 
 
-    if (intentos >= 3) {
-
-        await actualizarDatosTemporales(
-            telefono,
-            {}
-        );
+            const intentos =
+                Number(
+                    datosTemporales.intentos_codigo || 0
+                );
 
 
-        respuesta =
+            if (intentos >= 3) {
+
+                await actualizarDatosTemporales(
+                    telefono,
+                    {}
+                );
+
+
+                respuesta =
 `🔒 Se alcanzó el número máximo de intentos.
 
 Por seguridad, el acceso ha sido cancelado.
 
 Puedes iniciar nuevamente desde el menú principal.`;
 
-        siguientePaso =
-            "menu";
 
-        break;
-    }
+                siguientePaso =
+                    "menu";
 
 
-    // =========================================
-    // COMPARAR CÓDIGO
-    // =========================================
-
-    if (
-        codigoIngresado !==
-        datosTemporales.codigo_seguridad
-    ) {
-
-        datosTemporales.intentos_codigo =
-            intentos + 1;
+                break;
+            }
 
 
-        await actualizarDatosTemporales(
-            telefono,
-            datosTemporales
-        );
+            if (
+                codigoIngresado !==
+                datosTemporales.codigo_seguridad
+            ) {
+
+                datosTemporales.intentos_codigo =
+                    intentos + 1;
 
 
-        const intentosRestantes =
-            3 -
-            datosTemporales.intentos_codigo;
+                await actualizarDatosTemporales(
+                    telefono,
+                    datosTemporales
+                );
 
 
-        respuesta =
+                const intentosRestantes =
+                    3 -
+                    datosTemporales.intentos_codigo;
+
+
+                respuesta =
 `❌ El código de seguridad es incorrecto.
 
 Intentos restantes: ${intentosRestantes}
 
 Verifica el código enviado al número registrado e intenta nuevamente.`;
 
-        break;
-    }
+
+                break;
+            }
 
 
-    // =========================================
-    // BUSCAR REGISTRO AUTORIZADO
-    // =========================================
-
-    const usuarioAutorizado =
-        await buscarPorCURP(
-            datosTemporales.curp
-        );
+            const usuarioAutorizado =
+                await buscarPorCURP(
+                    datosTemporales.curp
+                );
 
 
-    if (!usuarioAutorizado) {
+            if (!usuarioAutorizado) {
 
-        console.log(
-            "🔴 No se encontró el registro asociado a la CURP:",
-            datosTemporales.curp
-        );
-
-
-        await actualizarDatosTemporales(
-            telefono,
-            {}
-        );
+                console.log(
+                    "🔴 No se encontró el registro asociado a la CURP:",
+                    datosTemporales.curp
+                );
 
 
-        respuesta =
+                await actualizarDatosTemporales(
+                    telefono,
+                    {}
+                );
+
+
+                respuesta =
 `❌ No encontramos el registro asociado a esta CURP.
 
 Por seguridad, el acceso ha sido cancelado.
 
 Puedes iniciar nuevamente desde el menú principal.`;
 
-        siguientePaso =
-            "menu";
 
-        break;
-    }
+                siguientePaso =
+                    "menu";
 
 
-    // =========================================
-    // CÓDIGO CORRECTO
-    // =========================================
-
-    console.log(
-        "🟢 Código de seguridad correcto."
-    );
-
-    console.log(
-        "🆔 CURP autorizada:",
-        datosTemporales.curp
-    );
-
-    console.log(
-        "🆔 Usuario autorizado:",
-        usuarioAutorizado.id
-    );
-
-    console.log(
-        "📱 Teléfono registrado:",
-        usuarioAutorizado.telefono
-    );
+                break;
+            }
 
 
-    // =========================================
-    // GUARDAR AUTORIZACIÓN TEMPORAL
-    // =========================================
-
-    datosTemporales.seguridad_verificada =
-        true;
+            console.log(
+                "🟢 Código de seguridad correcto."
+            );
 
 
-    datosTemporales.fecha_autorizacion =
-        Date.now();
+            console.log(
+                "🆔 CURP autorizada:",
+                datosTemporales.curp
+            );
 
 
-    datosTemporales.usuario_autorizado_id =
-        usuarioAutorizado.id;
+            console.log(
+                "🆔 Usuario autorizado:",
+                usuarioAutorizado.id
+            );
 
 
-    datosTemporales.telefono_registrado =
-        usuarioAutorizado.telefono;
+            console.log(
+                "📱 Teléfono registrado:",
+                usuarioAutorizado.telefono
+            );
 
 
-    // =========================================
-    // ELIMINAR DATOS DEL CÓDIGO
-    // =========================================
-
-    delete datosTemporales.codigo_seguridad;
-
-    delete datosTemporales.codigo_expira;
-
-    delete datosTemporales.intentos_codigo;
+            datosTemporales.seguridad_verificada =
+                true;
 
 
-    // =========================================
-    // GUARDAR SESIÓN AUTORIZADA
-    // =========================================
-
-    await actualizarDatosTemporales(
-        telefono,
-        datosTemporales
-    );
+            datosTemporales.fecha_autorizacion =
+                Date.now();
 
 
-    // =========================================
-    // RESPUESTA
-    // =========================================
+            datosTemporales.usuario_autorizado_id =
+                usuarioAutorizado.id;
 
-    respuesta =
+
+            datosTemporales.telefono_registrado =
+                usuarioAutorizado.telefono;
+
+
+            delete datosTemporales.codigo_seguridad;
+
+            delete datosTemporales.codigo_expira;
+
+            delete datosTemporales.intentos_codigo;
+
+
+            await actualizarDatosTemporales(
+                telefono,
+                datosTemporales
+            );
+
+
+            respuesta =
 `✅ *Verificación exitosa*
 
 Tu identidad fue verificada correctamente.
@@ -831,41 +1100,38 @@ ${datosTemporales.curp}
 1️⃣ Buscar vacantes
 2️⃣ Ver mis datos
 3️⃣ Actualizar mis datos
-4️⃣ Consultar mi folio
+4️⃣ Mis postulaciones
 5️⃣ Hablar con un asesor
 6️⃣ Menú principal
 7️⃣ Salir`;
 
 
-    siguientePaso =
-        "menu";
+            siguientePaso =
+                "menu";
 
 
-    break;
-}
-
-// =============================================
-// ESPERANDO NOMBRE
-// =============================================
-
-case "esperando_nombre": {
-
-    const nombre =
-        mensaje
-            .trim()
-            .replace(/\s+/g, " ");
+            break;
+        }
 
 
-    // =========================================
-    // VALIDAR NOMBRE
-    // =========================================
+        // ====================================================
+        // NOMBRE
+        // ====================================================
 
-    if (
-        !nombre ||
-        nombre.length < 3
-    ) {
+        case "esperando_nombre": {
 
-        respuesta =
+            const nombre =
+                mensaje
+                    .trim()
+                    .replace(/\s+/g, " ");
+
+
+            if (
+                !nombre ||
+                nombre.length < 3
+            ) {
+
+                respuesta =
 `⚠️ El nombre no parece válido.
 
 Escribe tu nombre completo.
@@ -874,32 +1140,26 @@ Ejemplo:
 
 Juan Alberto Pérez López`;
 
-        siguientePaso =
-            "esperando_nombre";
 
-        break;
-    }
+                siguientePaso =
+                    "esperando_nombre";
 
 
-    // =========================================
-    // GUARDAR NOMBRE
-    // =========================================
-
-    datosTemporales.nombre_completo =
-        nombre;
+                break;
+            }
 
 
-    await actualizarDatosTemporales(
-        telefono,
-        datosTemporales
-    );
+            datosTemporales.nombre_completo =
+                nombre;
 
 
-    // =========================================
-    // RESPUESTA
-    // =========================================
+            await actualizarDatosTemporales(
+                telefono,
+                datosTemporales
+            );
 
-    respuesta =
+
+            respuesta =
 `📅 ¿Cuál es tu fecha de nacimiento?
 
 Puedes escribirla, por ejemplo:
@@ -907,812 +1167,132 @@ Puedes escribirla, por ejemplo:
 08 de noviembre de 2003`;
 
 
-    siguientePaso =
-        "esperando_fecha";
-
-
-    break;
-}
-
-       case "esperando_fecha": {
-
-    const fecha =
-        convertirFecha(mensaje);
-
-
-    if (!fecha) {
-
-        respuesta =
-`⚠️ No pude reconocer la fecha.
-
-Ejemplo:
-
-08 de noviembre de 2003`;
-
-        break;
-    }
-
-
-    // =============================================
-    // RECUPERACIÓN DE PERFIL EXISTENTE
-    // =============================================
-
-    if (
-        datosTemporales.completando_perfil &&
-        datosTemporales.usuario_existente_id
-    ) {
-
-        console.log(
-            "🔄 Actualizando solamente fecha..."
-        );
-
-
-        const buscadorActualizado =
-            await actualizarCampoPerfilPorId(
-                datosTemporales.usuario_existente_id,
-                "fecha",
-                fecha
-            );
-
-
-        const siguiente =
-            obtenerSiguientePasoPerfil(
-                buscadorActualizado
-            );
-
-
-        if (siguiente) {
-
-            datosTemporales.dato_perfil_actual =
-                siguiente.dato;
-
-            await actualizarDatosTemporales(
-                telefono,
-                datosTemporales
-            );
-
-            respuesta =
-                siguiente.respuesta;
-
             siguientePaso =
-                siguiente.paso;
+                "esperando_fecha";
 
-        } else {
 
-            await actualizarDatosTemporales(
-                telefono,
-                {}
-            );
-
-            respuesta = `
-🎉 *¡Perfil completado correctamente!*
-
-Tu folio es:
-
-🆔 ${buscadorActualizado.folio}
-
-¿Qué deseas hacer?
-
-1️⃣ Buscar vacantes
-2️⃣ Ver mis datos
-3️⃣ Actualizar mis datos
-4️⃣ Consultar mi folio
-5️⃣ Hablar con un asesor
-6️⃣ Menú principal
-7️⃣ Salir
-`;
-
-            siguientePaso =
-                "menu";
+            break;
         }
 
-        break;
-    }
 
-
-    // =============================================
-    // REGISTRO NORMAL
-    // =============================================
-
-    datosTemporales.fecha_nacimiento =
-        fecha;
-
-
-    await actualizarDatosTemporales(
-        telefono,
-        datosTemporales
-    );
-
-
-    respuesta =
-`✅ Fecha registrada.
-
-¿Cuál es tu sexo?
-
-${generarMenu(sexo)}`;
-
-    siguientePaso =
-        "esperando_sexo";
-
-    break;
-}
-
-
-        // =============================================
-        // ESPERANDO FECHA
-        // =============================================
+        // ====================================================
+        // FECHA
+        // ====================================================
 
         case "esperando_fecha": {
 
-    const fecha =
-        convertirFecha(mensaje);
+            const fecha =
+                convertirFecha(mensaje);
 
 
-    if (!fecha) {
+            if (!fecha) {
 
-        respuesta =
+                respuesta =
 `⚠️ No pude reconocer la fecha.
 
 Ejemplo:
 
 08 de noviembre de 2003`;
 
-        break;
-    }
 
+                break;
+            }
 
-    // =============================================
-    // RECUPERACIÓN DE PERFIL EXISTENTE
-    // =============================================
 
-    if (
-        datosTemporales.completando_perfil &&
-        datosTemporales.usuario_existente_id
-    ) {
+            // ------------------------------------------------
+            // PERFIL EXISTENTE
+            // ------------------------------------------------
 
-        console.log(
-            "🔄 Actualizando solamente fecha..."
-        );
-
-
-        const buscadorActualizado =
-            await actualizarCampoPerfilPorId(
-                datosTemporales.usuario_existente_id,
-                "fecha",
-                fecha
-            );
-
-
-        const siguiente =
-            obtenerSiguientePasoPerfil(
-                buscadorActualizado
-            );
-
-
-        if (siguiente) {
-
-            datosTemporales.dato_perfil_actual =
-                siguiente.dato;
-
-            await actualizarDatosTemporales(
-                telefono,
-                datosTemporales
-            );
-
-            respuesta =
-                siguiente.respuesta;
-
-            siguientePaso =
-                siguiente.paso;
-
-        } else {
-
-            await actualizarDatosTemporales(
-                telefono,
-                {}
-            );
-
-            respuesta = `
-🎉 *¡Perfil completado correctamente!*
-
-Tu folio es:
-
-🆔 ${buscadorActualizado.folio}
-
-¿Qué deseas hacer?
-
-1️⃣ Buscar vacantes
-2️⃣ Ver mis datos
-3️⃣ Actualizar mis datos
-4️⃣ Consultar mi folio
-5️⃣ Hablar con un asesor
-6️⃣ Menú principal
-7️⃣ Salir
-`;
-
-            siguientePaso =
-                "menu";
-        }
-
-        break;
-    }
-
-
-    // =============================================
-    // REGISTRO NORMAL
-    // =============================================
-
-    datosTemporales.fecha_nacimiento =
-        fecha;
-
-
-    await actualizarDatosTemporales(
-        telefono,
-        datosTemporales
-    );
-
-
-    respuesta =
-`✅ Fecha registrada.
-
-¿Cuál es tu sexo?
-
-${generarMenu(sexo)}`;
-
-    siguientePaso =
-        "esperando_sexo";
-
-    break;
-}
-
-
-        // =============================================
-        // ESPERANDO SEXO
-        // =============================================
-
-        case "esperando_sexo": {
-
-    if (!sexo[mensaje]) {
-
-        respuesta =
-`⚠️ Selecciona una opción válida:
-
-${generarMenu(sexo)}`;
-
-        break;
-    }
-
-
-    const sexoSeleccionado =
-        sexo[mensaje];
-
-
-    // =============================================
-    // RECUPERACIÓN DE PERFIL EXISTENTE
-    // =============================================
-
-    if (
-        datosTemporales.completando_perfil &&
-        datosTemporales.usuario_existente_id
-    ) {
-
-        console.log(
-            "🔄 Actualizando solamente sexo..."
-        );
-
-
-        const buscadorActualizado =
-            await actualizarCampoPerfilPorId(
-                datosTemporales.usuario_existente_id,
-                "sexo",
-                sexoSeleccionado
-            );
-
-
-        const siguiente =
-            obtenerSiguientePasoPerfil(
-                buscadorActualizado
-            );
-
-
-        if (siguiente) {
-
-            datosTemporales.dato_perfil_actual =
-                siguiente.dato;
-
-            await actualizarDatosTemporales(
-                telefono,
-                datosTemporales
-            );
-
-            respuesta =
-                siguiente.respuesta;
-
-            siguientePaso =
-                siguiente.paso;
-
-        } else {
-
-            await actualizarDatosTemporales(
-                telefono,
-                {}
-            );
-
-            respuesta = `
-🎉 *¡Perfil completado correctamente!*
-
-Tu folio es:
-
-🆔 ${buscadorActualizado.folio}
-
-¿Qué deseas hacer?
-
-1️⃣ Buscar vacantes
-2️⃣ Ver mis datos
-3️⃣ Actualizar mis datos
-4️⃣ Consultar mi folio
-5️⃣ Hablar con un asesor
-6️⃣ Menú principal
-7️⃣ Salir
-`;
-
-            siguientePaso =
-                "menu";
-        }
-
-        break;
-    }
-
-
-    // =============================================
-    // REGISTRO NORMAL
-    // =============================================
-
-    datosTemporales.sexo =
-        sexoSeleccionado;
-
-
-    await actualizarDatosTemporales(
-        telefono,
-        datosTemporales
-    );
-
-
-    respuesta =
-`✅ Sexo registrado: ${sexoSeleccionado}
-
-¿Cuál es tu correo electrónico?`;
-
-    siguientePaso =
-        "esperando_correo";
-
-    break;
-}
-
-
-        // =============================================
-        // ESPERANDO CORREO
-        // =============================================
-
-        case "esperando_correo": {
-
-    const correo =
-        mensaje.trim();
-
-
-    const correoValido =
-        /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
-            correo
-        );
-
-
-    if (!correoValido) {
-
-        respuesta =
-`⚠️ El correo electrónico no parece válido.
-
-Ejemplo:
-
-nombre@correo.com`;
-
-        break;
-    }
-
-
-    // =============================================
-    // RECUPERACIÓN DE PERFIL EXISTENTE
-    // =============================================
-
-    if (
-        datosTemporales.completando_perfil &&
-        datosTemporales.usuario_existente_id
-    ) {
-
-        console.log(
-            "🔄 Actualizando solamente correo..."
-        );
-
-
-        const buscadorActualizado =
-            await actualizarCampoPerfilPorId(
-                datosTemporales.usuario_existente_id,
-                "correo",
-                correo
-            );
-
-
-        console.log(
-            "📧 Correo actualizado:",
-            buscadorActualizado.correo
-        );
-
-        console.log(
-            "📋 Perfil completo:",
-            buscadorActualizado.perfil_completo
-        );
-
-
-        const siguiente =
-            obtenerSiguientePasoPerfil(
-                buscadorActualizado
-            );
-
-
-        if (siguiente) {
-
-            datosTemporales.dato_perfil_actual =
-                siguiente.dato;
-
-            await actualizarDatosTemporales(
-                telefono,
-                datosTemporales
-            );
-
-            respuesta =
-                siguiente.respuesta;
-
-            siguientePaso =
-                siguiente.paso;
-
-        } else {
-
-            // =====================================
-            // PERFIL YA COMPLETO
-            // =====================================
-
-            await actualizarDatosTemporales(
-                telefono,
-                {}
-            );
-
-
-            respuesta = `
-🎉 *¡Perfil completado correctamente!*
-
-Tu folio es:
-
-🆔 ${buscadorActualizado.folio}
-
-¿Qué deseas hacer?
-
-1️⃣ Buscar vacantes
-2️⃣ Ver mis datos
-3️⃣ Actualizar mis datos
-4️⃣ Consultar mi folio
-5️⃣ Hablar con un asesor
-6️⃣ Menú principal
-7️⃣ Salir
-`;
-
-
-            siguientePaso =
-                "menu";
-        }
-
-
-        break;
-    }
-
-
-    // =============================================
-    // REGISTRO NORMAL
-    // =============================================
-
-    datosTemporales.correo =
-        correo;
-
-
-    await actualizarDatosTemporales(
-        telefono,
-        datosTemporales
-    );
-
-
-    respuesta =
-`✅ Correo registrado.
-
-¿Cuál es tu código postal?
-
-Ejemplo:
-
-29000`;
-
-    siguientePaso =
-        "esperando_codigo_postal";
-
-    break;
-}
-
-
-        // =============================================
-        // ESPERANDO CÓDIGO POSTAL
-        // =============================================
-
-        case "esperando_codigo_postal": {
-
-    const codigoPostal =
-        mensaje.trim();
-
-
-    if (!/^\d{5}$/.test(codigoPostal)) {
-
-        respuesta =
-`⚠️ El código postal debe contener 5 números.
-
-Ejemplo:
-
-29000`;
-
-        break;
-    }
-
-
-    // =============================================
-    // RECUPERACIÓN DE PERFIL EXISTENTE
-    // =============================================
-
-    if (
-        datosTemporales.completando_perfil &&
-        datosTemporales.usuario_existente_id
-    ) {
-
-        console.log(
-            "🔄 Actualizando solamente código postal..."
-        );
-
-
-        const buscadorActualizado =
-            await actualizarCampoPerfilPorId(
-                datosTemporales.usuario_existente_id,
-                "codigo_postal",
-                codigoPostal
-            );
-
-
-        console.log(
-            "📮 Código postal actualizado:",
-            buscadorActualizado.codigo_postal
-        );
-
-        console.log(
-            "📋 Perfil completo:",
-            buscadorActualizado.perfil_completo
-        );
-
-
-        const siguiente =
-            obtenerSiguientePasoPerfil(
-                buscadorActualizado
-            );
-
-
-        if (siguiente) {
-
-            datosTemporales.dato_perfil_actual =
-                siguiente.dato;
-
-            await actualizarDatosTemporales(
-                telefono,
-                datosTemporales
-            );
-
-            respuesta =
-                siguiente.respuesta;
-
-            siguientePaso =
-                siguiente.paso;
-
-        } else {
-
-            // =====================================
-            // PERFIL COMPLETADO
-            // =====================================
-
-            await actualizarDatosTemporales(
-                telefono,
-                {}
-            );
-
-
-            respuesta = `
-🎉 *¡Perfil completado correctamente!*
-
-Tu folio es:
-
-🆔 ${buscadorActualizado.folio}
-
-¿Qué deseas hacer?
-
-1️⃣ Buscar vacantes
-2️⃣ Ver mis datos
-3️⃣ Actualizar mis datos
-4️⃣ Consultar mi folio
-5️⃣ Hablar con un asesor
-6️⃣ Menú principal
-7️⃣ Salir
-`;
-
-
-            siguientePaso =
-                "menu";
-        }
-
-
-        break;
-    }
-
-
-    // =============================================
-    // REGISTRO NORMAL
-    // =============================================
-
-    datosTemporales.codigo_postal =
-        codigoPostal;
-
-
-    await actualizarDatosTemporales(
-        telefono,
-        datosTemporales
-    );
-
-
-    try {
-
-        console.log(
-            "💾 Intentando crear registro definitivo..."
-        );
-
-        console.log(
-            "📦 Datos temporales:",
-            datosTemporales
-        );
-
-
-        let buscadorCreado;
-
-
-        // =========================================
-        // USUARIO EXISTENTE
-        // =========================================
-
-        if (
-            datosTemporales.usuario_existente_id
-        ) {
-
-            console.log(
-                "🔄 Actualizando registro existente..."
-            );
-
-            console.log(
-                "🆔 ID existente:",
+            if (
+                datosTemporales.completando_perfil &&
                 datosTemporales.usuario_existente_id
-            );
+            ) {
 
-
-            buscadorCreado =
-                await actualizarBuscadorCompletoPorId(
-                    datosTemporales.usuario_existente_id,
-                    datosTemporales
+                console.log(
+                    "🔄 Actualizando solamente fecha..."
                 );
 
 
-            console.log(
-                "✅ Registro existente actualizado correctamente."
-            );
+                const buscadorActualizado =
+                    await actualizarCampoPerfilPorId(
+
+                        datosTemporales.usuario_existente_id,
+
+                        "fecha",
+
+                        fecha
+
+                    );
 
 
-        } else {
-
-            // =========================================
-            // CURP NUEVA
-            // =========================================
-
-            console.log(
-                "🆕 Creando nuevo registro..."
-            );
+                const siguiente =
+                    obtenerSiguientePasoPerfil(
+                        buscadorActualizado
+                    );
 
 
-            buscadorCreado =
-                await crearBuscadorCompleto(
-                    datosTemporales,
-                    telefono
-                );
+                if (siguiente) {
+
+                    datosTemporales.dato_perfil_actual =
+                        siguiente.dato;
 
 
-            console.log(
-                "✅ Registro nuevo creado correctamente."
-            );
-        }
+                    await actualizarDatosTemporales(
+                        telefono,
+                        datosTemporales
+                    );
 
 
-        // =============================================
-       // POSTULACIÓN AUTOMÁTICA
-       // =============================================
-if (
-    datosTemporales.registro_desde_postulacion &&
-    datosTemporales.vacante_seleccionada
-) {
-
-    console.log(
-        "📝 Creando postulación automática..."
-    );
-
-    const postulacion =
-        await crearPostulacion(
-            buscadorCreado.id,
-            datosTemporales.vacante_seleccionada
-        );
-
-    if (postulacion) {
-
-        postulacionAutomatica = true;
-
-        console.log(
-            "✅ Postulación creada correctamente."
-        );
-
-        console.log(
-            "🆔 Postulación:",
-            postulacion.id
-        );
-
-        console.log(
-            "🆔 Vacante:",
-            datosTemporales.vacante_seleccionada
-        );
-
-    } else {
-
-        console.log(
-            "ℹ️ La postulación ya estaba registrada."
-        );
-
-        postulacionAutomatica = true;
-    }
-}
+                    respuesta =
+                        siguiente.respuesta;
 
 
-        await actualizarDatosTemporales(
-            telefono,
-            {}
-        );
+                    siguientePaso =
+                        siguiente.paso;
 
 
-        if (postulacionAutomatica) {
+                } else {
 
-    respuesta = `
-🎉 *¡Registro completado correctamente!*
+                    const resultado =
+                        await finalizarPerfilYPostulacion(
 
-Tus datos fueron registrados en el Sistema Nacional de Empleo.
+                            buscadorActualizado,
 
-🆔 *Tu folio:*
-${buscadorCreado.folio}
+                            datosTemporales,
+
+                            telefono
+
+                        );
+
+
+                    await actualizarDatosTemporales(
+                        telefono,
+                        {}
+                    );
+
+
+                    if (
+                        resultado.postulacionAutomatica
+                    ) {
+
+                        respuesta =
+`🎉 *¡Perfil completado correctamente!*
+
+Tu folio es:
+
+🆔 ${buscadorActualizado.folio}
 
 ━━━━━━━━━━━━━━━━━━
 
-✅ *¡Postulación exitosa!*
+✅ *¡Postulación registrada!*
 
 La vacante que seleccionaste también fue registrada correctamente.
+
+${
+    resultado.comprobanteEnviado
+        ? "📄 *Te enviamos tu comprobante de postulación en este chat.*"
+        : "⚠️ La postulación quedó registrada, pero no fue posible enviar el comprobante en este momento."
+}
 
 Un asesor o reclutador podrá ponerse en contacto contigo.
 
@@ -1721,14 +1301,821 @@ Un asesor o reclutador podrá ponerse en contacto contigo.
 ¿Qué deseas hacer?
 
 1️⃣ Buscar más vacantes
-2️⃣ Menú principal
+6️⃣ Menú principal
 7️⃣ Salir
 `;
 
-} else {
+                    } else {
 
-    respuesta = `
-🎉 *¡Registro completado correctamente!*
+                        respuesta =
+`🎉 *¡Perfil completado correctamente!*
+
+Tu folio es:
+
+🆔 ${buscadorActualizado.folio}
+
+¿Qué deseas hacer?
+
+1️⃣ Buscar vacantes
+2️⃣ Ver mis datos
+3️⃣ Actualizar mis datos
+4️⃣ Mis postulaciones
+5️⃣ Hablar con un asesor
+6️⃣ Menú principal
+7️⃣ Salir
+`;
+                    }
+
+
+                    siguientePaso =
+                        "menu";
+                }
+
+
+                break;
+            }
+
+
+            // ------------------------------------------------
+            // NUEVO REGISTRO
+            // ------------------------------------------------
+
+            datosTemporales.fecha_nacimiento =
+                fecha;
+
+
+            await actualizarDatosTemporales(
+                telefono,
+                datosTemporales
+            );
+
+
+            respuesta =
+`✅ Fecha registrada.
+
+¿Cuál es tu sexo?
+
+${generarMenu(sexo)}`;
+
+
+            siguientePaso =
+                "esperando_sexo";
+
+
+            break;
+        }
+
+
+        // ====================================================
+        // SEXO
+        // ====================================================
+
+        case "esperando_sexo": {
+
+            if (!sexo[mensaje]) {
+
+                respuesta =
+`⚠️ Selecciona una opción válida:
+
+${generarMenu(sexo)}`;
+
+
+                break;
+            }
+
+
+            const sexoSeleccionado =
+                sexo[mensaje];
+
+
+            // ------------------------------------------------
+            // PERFIL EXISTENTE
+            // ------------------------------------------------
+
+            if (
+                datosTemporales.completando_perfil &&
+                datosTemporales.usuario_existente_id
+            ) {
+
+                console.log(
+                    "🔄 Actualizando solamente sexo..."
+                );
+
+
+                const buscadorActualizado =
+                    await actualizarCampoPerfilPorId(
+
+                        datosTemporales.usuario_existente_id,
+
+                        "sexo",
+
+                        sexoSeleccionado
+
+                    );
+
+
+                const siguiente =
+                    obtenerSiguientePasoPerfil(
+                        buscadorActualizado
+                    );
+
+
+                if (siguiente) {
+
+                    datosTemporales.dato_perfil_actual =
+                        siguiente.dato;
+
+
+                    await actualizarDatosTemporales(
+                        telefono,
+                        datosTemporales
+                    );
+
+
+                    respuesta =
+                        siguiente.respuesta;
+
+
+                    siguientePaso =
+                        siguiente.paso;
+
+
+                } else {
+
+                    const resultado =
+                        await finalizarPerfilYPostulacion(
+
+                            buscadorActualizado,
+
+                            datosTemporales,
+
+                            telefono
+
+                        );
+
+
+                    await actualizarDatosTemporales(
+                        telefono,
+                        {}
+                    );
+
+
+                    if (
+                        resultado.postulacionAutomatica
+                    ) {
+
+                        respuesta =
+`🎉 *¡Perfil completado correctamente!*
+
+Tu folio es:
+
+🆔 ${buscadorActualizado.folio}
+
+━━━━━━━━━━━━━━━━━━
+
+✅ *¡Postulación registrada!*
+
+La vacante que seleccionaste también fue registrada correctamente.
+
+${
+    resultado.comprobanteEnviado
+        ? "📄 *Te enviamos tu comprobante de postulación en este chat.*"
+        : "⚠️ La postulación quedó registrada, pero no fue posible enviar el comprobante en este momento."
+}
+
+Un asesor o reclutador podrá ponerse en contacto contigo.
+
+⚠️ La postulación no garantiza la contratación.
+
+¿Qué deseas hacer?
+
+1️⃣ Buscar más vacantes
+6️⃣ Menú principal
+7️⃣ Salir
+`;
+
+                    } else {
+
+                        respuesta =
+`🎉 *¡Perfil completado correctamente!*
+
+Tu folio es:
+
+🆔 ${buscadorActualizado.folio}
+
+¿Qué deseas hacer?
+
+1️⃣ Buscar vacantes
+2️⃣ Ver mis datos
+3️⃣ Actualizar mis datos
+4️⃣ Mis postulaciones
+5️⃣ Hablar con un asesor
+6️⃣ Menú principal
+7️⃣ Salir
+`;
+                    }
+
+
+                    siguientePaso =
+                        "menu";
+                }
+
+
+                break;
+            }
+
+
+            // ------------------------------------------------
+            // NUEVO REGISTRO
+            // ------------------------------------------------
+
+            datosTemporales.sexo =
+                sexoSeleccionado;
+
+
+            await actualizarDatosTemporales(
+                telefono,
+                datosTemporales
+            );
+
+
+            respuesta =
+`✅ Sexo registrado: ${sexoSeleccionado}
+
+¿Cuál es tu correo electrónico?`;
+
+
+            siguientePaso =
+                "esperando_correo";
+
+
+            break;
+        }
+
+
+        // ====================================================
+        // CORREO
+        // ====================================================
+
+        case "esperando_correo": {
+
+            const correo =
+                mensaje.trim();
+
+
+            const correoValido =
+                /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+                    correo
+                );
+
+
+            if (!correoValido) {
+
+                respuesta =
+`⚠️ El correo electrónico no parece válido.
+
+Ejemplo:
+
+nombre@correo.com`;
+
+
+                break;
+            }
+
+
+            // ------------------------------------------------
+            // PERFIL EXISTENTE
+            // ------------------------------------------------
+
+            if (
+                datosTemporales.completando_perfil &&
+                datosTemporales.usuario_existente_id
+            ) {
+
+                console.log(
+                    "🔄 Actualizando solamente correo..."
+                );
+
+
+                const buscadorActualizado =
+                    await actualizarCampoPerfilPorId(
+
+                        datosTemporales.usuario_existente_id,
+
+                        "correo",
+
+                        correo
+
+                    );
+
+
+                console.log(
+                    "📧 Correo actualizado:",
+                    buscadorActualizado.correo
+                );
+
+
+                console.log(
+                    "📋 Perfil completo:",
+                    buscadorActualizado.perfil_completo
+                );
+
+
+                const siguiente =
+                    obtenerSiguientePasoPerfil(
+                        buscadorActualizado
+                    );
+
+
+                if (siguiente) {
+
+                    datosTemporales.dato_perfil_actual =
+                        siguiente.dato;
+
+
+                    await actualizarDatosTemporales(
+                        telefono,
+                        datosTemporales
+                    );
+
+
+                    respuesta =
+                        siguiente.respuesta;
+
+
+                    siguientePaso =
+                        siguiente.paso;
+
+
+                } else {
+
+                    const resultado =
+                        await finalizarPerfilYPostulacion(
+
+                            buscadorActualizado,
+
+                            datosTemporales,
+
+                            telefono
+
+                        );
+
+
+                    await actualizarDatosTemporales(
+                        telefono,
+                        {}
+                    );
+
+
+                    if (
+                        resultado.postulacionAutomatica
+                    ) {
+
+                        respuesta =
+`🎉 *¡Perfil completado correctamente!*
+
+Tu folio es:
+
+🆔 ${buscadorActualizado.folio}
+
+━━━━━━━━━━━━━━━━━━
+
+✅ *¡Postulación registrada!*
+
+La vacante que seleccionaste también fue registrada correctamente.
+
+${
+    resultado.comprobanteEnviado
+        ? "📄 *Te enviamos tu comprobante de postulación en este chat.*"
+        : "⚠️ La postulación quedó registrada, pero no fue posible enviar el comprobante en este momento."
+}
+
+Un asesor o reclutador podrá ponerse en contacto contigo.
+
+⚠️ La postulación no garantiza la contratación.
+
+¿Qué deseas hacer?
+
+1️⃣ Buscar más vacantes
+6️⃣ Menú principal
+7️⃣ Salir
+`;
+
+                    } else {
+
+                        respuesta =
+`🎉 *¡Perfil completado correctamente!*
+
+Tu folio es:
+
+🆔 ${buscadorActualizado.folio}
+
+¿Qué deseas hacer?
+
+1️⃣ Buscar vacantes
+2️⃣ Ver mis datos
+3️⃣ Actualizar mis datos
+4️⃣ Mis postulaciones
+5️⃣ Hablar con un asesor
+6️⃣ Menú principal
+7️⃣ Salir
+`;
+                    }
+
+
+                    siguientePaso =
+                        "menu";
+                }
+
+
+                break;
+            }
+
+
+            // ------------------------------------------------
+            // NUEVO REGISTRO
+            // ------------------------------------------------
+
+            datosTemporales.correo =
+                correo;
+
+
+            await actualizarDatosTemporales(
+                telefono,
+                datosTemporales
+            );
+
+
+            respuesta =
+`✅ Correo registrado.
+
+¿Cuál es tu código postal?
+
+Ejemplo:
+
+29000`;
+
+
+            siguientePaso =
+                "esperando_codigo_postal";
+
+
+            break;
+        }
+
+
+        // ====================================================
+        // CÓDIGO POSTAL
+        // ====================================================
+
+        case "esperando_codigo_postal": {
+
+            const codigoPostal =
+                mensaje.trim();
+
+
+            if (!/^\d{5}$/.test(codigoPostal)) {
+
+                respuesta =
+`⚠️ El código postal debe contener 5 números.
+
+Ejemplo:
+
+29000`;
+
+
+                break;
+            }
+
+
+            // ------------------------------------------------
+            // PERFIL EXISTENTE
+            // ------------------------------------------------
+
+            if (
+                datosTemporales.completando_perfil &&
+                datosTemporales.usuario_existente_id
+            ) {
+
+                console.log(
+                    "🔄 Actualizando solamente código postal..."
+                );
+
+
+                const buscadorActualizado =
+                    await actualizarCampoPerfilPorId(
+
+                        datosTemporales.usuario_existente_id,
+
+                        "codigo_postal",
+
+                        codigoPostal
+
+                    );
+
+
+                console.log(
+                    "📮 Código postal actualizado:",
+                    buscadorActualizado.codigo_postal
+                );
+
+
+                console.log(
+                    "📋 Perfil completo:",
+                    buscadorActualizado.perfil_completo
+                );
+
+
+                const siguiente =
+                    obtenerSiguientePasoPerfil(
+                        buscadorActualizado
+                    );
+
+
+                if (siguiente) {
+
+                    datosTemporales.dato_perfil_actual =
+                        siguiente.dato;
+
+
+                    await actualizarDatosTemporales(
+                        telefono,
+                        datosTemporales
+                    );
+
+
+                    respuesta =
+                        siguiente.respuesta;
+
+
+                    siguientePaso =
+                        siguiente.paso;
+
+
+                } else {
+
+                    const resultado =
+                        await finalizarPerfilYPostulacion(
+
+                            buscadorActualizado,
+
+                            datosTemporales,
+
+                            telefono
+
+                        );
+
+
+                    await actualizarDatosTemporales(
+                        telefono,
+                        {}
+                    );
+
+
+                    if (
+                        resultado.postulacionAutomatica
+                    ) {
+
+                        respuesta =
+`🎉 *¡Perfil completado correctamente!*
+
+Tu folio es:
+
+🆔 ${buscadorActualizado.folio}
+
+━━━━━━━━━━━━━━━━━━
+
+✅ *¡Postulación registrada!*
+
+La vacante que seleccionaste también fue registrada correctamente.
+
+${
+    resultado.comprobanteEnviado
+        ? "📄 *Te enviamos tu comprobante de postulación en este chat.*"
+        : "⚠️ La postulación quedó registrada, pero no fue posible enviar el comprobante en este momento."
+}
+
+Un asesor o reclutador podrá ponerse en contacto contigo.
+
+⚠️ La postulación no garantiza la contratación.
+
+¿Qué deseas hacer?
+
+1️⃣ Buscar más vacantes
+6️⃣ Menú principal
+7️⃣ Salir
+`;
+
+                    } else {
+
+                        respuesta =
+`🎉 *¡Perfil completado correctamente!*
+
+Tu folio es:
+
+🆔 ${buscadorActualizado.folio}
+
+¿Qué deseas hacer?
+
+1️⃣ Buscar vacantes
+2️⃣ Ver mis datos
+3️⃣ Actualizar mis datos
+4️⃣ Mis postulaciones
+5️⃣ Hablar con un asesor
+6️⃣ Menú principal
+7️⃣ Salir
+`;
+                    }
+
+
+                    siguientePaso =
+                        "menu";
+                }
+
+
+                break;
+            }
+
+
+            // ------------------------------------------------
+            // NUEVO REGISTRO
+            // ------------------------------------------------
+
+            datosTemporales.codigo_postal =
+                codigoPostal;
+
+
+            await actualizarDatosTemporales(
+                telefono,
+                datosTemporales
+            );
+
+
+            try {
+
+                console.log(
+                    "💾 Intentando crear registro definitivo..."
+                );
+
+
+                console.log(
+                    "📦 Datos temporales:",
+                    datosTemporales
+                );
+
+
+                let buscadorCreado;
+
+
+                // --------------------------------------------
+                // ACTUALIZAR REGISTRO EXISTENTE
+                // --------------------------------------------
+
+                if (
+                    datosTemporales.usuario_existente_id
+                ) {
+
+                    console.log(
+                        "🔄 Actualizando registro existente..."
+                    );
+
+
+                    console.log(
+                        "🆔 ID existente:",
+                        datosTemporales.usuario_existente_id
+                    );
+
+
+                    buscadorCreado =
+                        await actualizarBuscadorCompletoPorId(
+
+                            datosTemporales.usuario_existente_id,
+
+                            datosTemporales
+
+                        );
+
+
+                    console.log(
+                        "✅ Registro existente actualizado correctamente."
+                    );
+
+
+                } else {
+
+                    // ----------------------------------------
+                    // CREAR REGISTRO NUEVO
+                    // ----------------------------------------
+
+                    console.log(
+                        "🆕 Creando nuevo registro..."
+                    );
+
+
+                    buscadorCreado =
+                        await crearBuscadorCompleto(
+
+                            datosTemporales,
+
+                            telefono
+
+                        );
+
+
+                    console.log(
+                        "✅ Registro nuevo creado correctamente."
+                    );
+                }
+
+
+                // --------------------------------------------
+                // POSTULACIÓN AUTOMÁTICA
+                // --------------------------------------------
+
+                let postulacionAutomatica = false;
+                let comprobanteEnviado = false;
+
+
+                if (
+                    datosTemporales.registro_desde_postulacion &&
+                    datosTemporales.vacante_seleccionada
+                ) {
+
+                    const resultado =
+                        await procesarPostulacionYComprobante(
+
+                            buscadorCreado.id,
+
+                            datosTemporales.vacante_seleccionada,
+
+                            telefono
+
+                        );
+
+
+                    if (
+                        resultado.postulacionCreada
+                    ) {
+
+                        postulacionAutomatica = true;
+
+                        comprobanteEnviado =
+                            resultado.comprobanteEnviado;
+                    }
+                }
+
+
+                // --------------------------------------------
+                // LIMPIAR SESIÓN
+                // --------------------------------------------
+
+                await actualizarDatosTemporales(
+                    telefono,
+                    {}
+                );
+
+
+                // --------------------------------------------
+                // RESPUESTA FINAL
+                // --------------------------------------------
+
+                if (postulacionAutomatica) {
+
+                    respuesta =
+`🎉 *¡Registro completado correctamente!*
+
+Tus datos fueron registrados en el Sistema Nacional de Empleo.
+
+🆔 *Tu folio:*
+${buscadorCreado.folio}
+
+━━━━━━━━━━━━━━━━━━
+
+✅ *¡Postulación registrada!*
+
+La vacante que seleccionaste también fue registrada correctamente.
+
+${
+    comprobanteEnviado
+        ? "📄 *Te enviamos tu comprobante de postulación en este chat.*"
+        : "⚠️ La postulación quedó registrada, pero no fue posible enviar el comprobante en este momento."
+}
+
+Un asesor o reclutador podrá ponerse en contacto contigo.
+
+⚠️ La postulación no garantiza la contratación.
+
+¿Qué deseas hacer?
+
+1️⃣ Buscar más vacantes
+6️⃣ Menú principal
+7️⃣ Salir
+`;
+
+                } else {
+
+                    respuesta =
+`🎉 *¡Registro completado correctamente!*
 
 Tus datos fueron registrados en el Sistema Nacional de Empleo.
 
@@ -1740,45 +2127,48 @@ ${buscadorCreado.folio}
 1️⃣ Buscar vacantes
 2️⃣ Ver mis datos
 3️⃣ Actualizar mis datos
-4️⃣ Consultar mi folio
+4️⃣ Mis postulaciones
 5️⃣ Hablar con un asesor
 6️⃣ Menú principal
 7️⃣ Salir
 `;
-}
+                }
 
 
-        siguientePaso =
-            "menu";
+                siguientePaso =
+                    "menu";
 
 
-        console.log(
-            "✅ Registro definitivo creado correctamente."
-        );
-
-        console.log(
-            "🆔 ID:",
-            buscadorCreado.id
-        );
-
-        console.log(
-            "📄 Folio:",
-            buscadorCreado.folio
-        );
+                console.log(
+                    "✅ Registro definitivo creado correctamente."
+                );
 
 
-    } catch (error) {
-
-        console.error(
-            "🔴 Error al crear el registro definitivo:"
-        );
-
-        console.error(
-            error.message
-        );
+                console.log(
+                    "🆔 ID:",
+                    buscadorCreado.id
+                );
 
 
-        respuesta =
+                console.log(
+                    "📄 Folio:",
+                    buscadorCreado.folio
+                );
+
+
+            } catch (error) {
+
+                console.error(
+                    "🔴 Error al crear el registro definitivo:"
+                );
+
+
+                console.error(
+                    error.message
+                );
+
+
+                respuesta =
 `⚠️ Ocurrió un problema al finalizar tu registro.
 
 No se creó el registro definitivo.
@@ -1787,13 +2177,16 @@ Tus datos siguen guardados temporalmente y puedes intentar nuevamente.
 
 Cuando estés listo, vuelve a enviar tu código postal.`;
 
-        siguientePaso =
-            "esperando_codigo_postal";
-    }
+
+                siguientePaso =
+                    "esperando_codigo_postal";
+            }
 
 
-    break;
-}
+            break;
+        }
+
+
 
         default:
 
@@ -1802,8 +2195,10 @@ Cuando estés listo, vuelve a enviar tu código postal.`;
 
 Escribe "inicio" para volver al menú principal.`;
 
+
             siguientePaso =
                 "menu";
+
 
             break;
     }

@@ -1,25 +1,15 @@
 const db = require("../config/database");
 
 
-// =====================================================
-// OBTENER ESTADÍSTICAS DEL DASHBOARD
-// =====================================================
-
 async function obtenerEstadisticasDashboard() {
 
-    // ---------------------------------------------
-    // TOTAL DE PERSONAS REGISTRADAS
-    // ---------------------------------------------
+
 
     const personas = await db.query(`
         SELECT COUNT(*) AS total
         FROM buscadores_empleo
     `);
 
-
-    // ---------------------------------------------
-    // PERFILES COMPLETOS
-    // ---------------------------------------------
 
     const perfilesCompletos = await db.query(`
         SELECT COUNT(*) AS total
@@ -28,9 +18,6 @@ async function obtenerEstadisticasDashboard() {
     `);
 
 
-    // ---------------------------------------------
-    // PERFILES INCOMPLETOS
-    // ---------------------------------------------
 
     const perfilesIncompletos = await db.query(`
         SELECT COUNT(*) AS total
@@ -40,19 +27,11 @@ async function obtenerEstadisticasDashboard() {
     `);
 
 
-    // ---------------------------------------------
-    // TOTAL DE VACANTES
-    // ---------------------------------------------
-
     const vacantes = await db.query(`
         SELECT COUNT(*) AS total
         FROM vacantes
     `);
 
-
-    // ---------------------------------------------
-    // TOTAL DE EMPRESAS
-    // ---------------------------------------------
 
     const empresas = await db.query(`
         SELECT COUNT(DISTINCT empresa) AS total
@@ -79,10 +58,6 @@ async function obtenerEstadisticasDashboard() {
     };
 }
 
-
-// =====================================================
-// OBTENER PERSONAS REGISTRADAS RECIENTEMENTE
-// =====================================================
 
 async function obtenerRegistrosRecientes() {
 

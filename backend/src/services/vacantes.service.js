@@ -1,10 +1,6 @@
 const db = require("../config/database");
 
 
-// =====================================================
-// OBTENER TODAS LAS VACANTES
-// =====================================================
-
 async function obtenerVacantes() {
 
     const resultado = await db.query(`
@@ -34,9 +30,6 @@ async function obtenerVacantes() {
 }
 
 
-// =====================================================
-// OBTENER VACANTE POR ID
-// =====================================================
 
 async function obtenerVacantePorId(id) {
 
@@ -68,9 +61,7 @@ async function obtenerVacantePorId(id) {
     return resultado.rows[0] || null;
 }
 
-// =====================================================
-// ACTUALIZAR ESTADO DE VACANTE
-// =====================================================
+
 
 async function actualizarEstadoVacante(id, estado) {
 

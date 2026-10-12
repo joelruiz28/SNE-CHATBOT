@@ -1,10 +1,5 @@
 const db = require("../config/database");
 
-
-// =====================================================
-// OBTENER ESTADÍSTICAS DE FOLIOS
-// =====================================================
-
 async function obtenerEstadisticasFolios() {
 
     const resultado = await db.query(`
@@ -43,10 +38,6 @@ async function obtenerEstadisticasFolios() {
 
 }
 
-
-// =====================================================
-// OBTENER FOLIOS RECIENTES
-// =====================================================
 
 async function obtenerFolios() {
 
@@ -87,10 +78,6 @@ async function obtenerFolios() {
 
 }
 
-
-// =====================================================
-// BUSCAR FOLIO
-// =====================================================
 
 async function buscarFolio(folio) {
 
@@ -160,10 +147,6 @@ async function buscarFolio(folio) {
 }
 
 
-// =====================================================
-// OBTENER FOLIO POR ID
-// =====================================================
-
 async function obtenerFolioPorId(id) {
 
     const resultado = await db.query(`
@@ -231,9 +214,7 @@ async function obtenerFolioPorId(id) {
 
 }
 
-// =====================================================
-// ESTADÍSTICAS DE FOLIOS
-// =====================================================
+
 
 async function obtenerEstadisticasFolios() {
 
@@ -264,9 +245,6 @@ async function obtenerEstadisticasFolios() {
 }
 
 
-// =====================================================
-// FOLIOS RECIENTES
-// =====================================================
 
 async function obtenerFoliosRecientes() {
 
@@ -293,9 +271,6 @@ async function obtenerFoliosRecientes() {
     return resultado.rows;
 }
 
-// =====================================
-// OBTENER RESUMEN DE FOLIOS
-// =====================================
 
 async function obtenerResumenFolios() {
 
@@ -361,9 +336,6 @@ async function obtenerResumenFolios() {
 
 }
 
-// =====================================================
-// EXPORTAR
-// =====================================================
 
 module.exports = {
 

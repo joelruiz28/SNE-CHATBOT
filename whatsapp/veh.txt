@@ -7697,3 +7697,18 @@ Más adelante, cuando quieras hacer cosas como:
 
 sin que Juan haya escrito primero, ahí sí tendrás que utilizar plantillas de WhatsApp aprobadas.
 
+PORT=5000
+DB_SERVER=201.98.76.220
+DB_PORT=1433
+DB_NAME=dbempleos
+DB_USER=empleos
+DB_PASSWORD=TRr3$}2J47Xpc_=}
+DB_TABLE_USUARIOS=Users
+DB_COL_USUARIO=CorreoElectronico
+DB_COL_PASSWORD=PasswordHash
+DB_TABLE_ROLES=Usuarios_Web
+Db_COL_ID=Id
+DB_COL_Relacion=Email
+DB_COL_ROL=Rol
+DB_COL_OFICINA=CveUnOperativa
+JWT_SECRET=supersecretjwtkey_12345

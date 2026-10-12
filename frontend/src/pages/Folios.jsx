@@ -8,9 +8,6 @@ import {
 import "../styles/folios.css";
 
 
-// =====================================================
-// ICONOS (SVG en línea, sin dependencias externas)
-// =====================================================
 
 const iconProps = {
     viewBox: "0 0 24 24",

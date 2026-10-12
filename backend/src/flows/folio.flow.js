@@ -222,7 +222,7 @@ Por favor, intenta nuevamente más tarde.
 1️⃣ Buscar vacantes
 2️⃣ Ver mis datos
 3️⃣ Actualizar mis datos
-4️⃣ Consultar mi folio
+4️⃣ Mis postulaciones
 5️⃣ Hablar con un asesor
 6️⃣ Menú principal
 7️⃣ Salir`;
@@ -387,7 +387,7 @@ Por favor, intenta nuevamente más tarde.
 1️⃣ Buscar vacantes
 2️⃣ Ver mis datos
 3️⃣ Actualizar mis datos
-4️⃣ Consultar mi folio
+4️⃣ Mis postulaciones
 5️⃣ Hablar con un asesor
 6️⃣ Menú principal
 7️⃣ Salir`;

@@ -4,6 +4,10 @@ const {
 } = require("../services/buscador.service");
 
 const {
+    mostrarListadoPostulaciones
+} = require("./postulaciones.flow");
+
+const {
     actualizarDatosTemporales
 } = require("../services/sesion.service");
 
@@ -142,7 +146,7 @@ function obtenerMenuPrincipal(usuarioRegistrado) {
 1️⃣ Buscar vacantes
 2️⃣ Ver mis datos
 3️⃣ Actualizar mis datos
-4️⃣ Consultar mi folio
+4️⃣ Mis postulaciones
 5️⃣ Hablar con un asesor
 6️⃣ Menú principal
 7️⃣ Salir
@@ -170,7 +174,7 @@ function obtenerMenuInvalido(usuarioRegistrado) {
 1️⃣ Buscar vacantes
 2️⃣ Ver mis datos
 3️⃣ Actualizar mis datos
-4️⃣ Consultar mi folio
+4️⃣ Mis postulaciones
 5️⃣ Hablar con un asesor
 6️⃣ Menú principal
 7️⃣ Salir
@@ -495,7 +499,7 @@ ${usuarioActual.folio || "Aún no asignado"}
 
 1️⃣ Buscar vacantes
 3️⃣ Actualizar mis datos
-4️⃣ Consultar mi folio
+4️⃣ Mis postulaciones
 5️⃣ Hablar con un asesor
 6️⃣ Menú principal
 7️⃣ Salir
@@ -573,19 +577,44 @@ Primero debes registrar tus datos.
         }
 
 
+case "4": {
 
-        case "4":
+    if (!usuarioRegistrado) {
 
-            respuesta = `
-🔎 *Consultar folio*
+        respuesta = `
+⚠️ No encontramos ningún registro asociado a este número.
 
-Escribe tu folio.
+Primero debes registrar tus datos.
 `;
 
-            siguientePaso =
-                "consultar_folio";
+        siguientePaso = "menu";
 
-            break;
+        break;
+    }
+
+
+    console.log(
+        "📋 Abriendo Mis postulaciones directamente..."
+    );
+
+
+    const resultado =
+        await mostrarListadoPostulaciones(
+            sesion,
+            telefono
+        );
+
+
+    respuesta =
+        resultado.respuesta;
+
+
+    siguientePaso =
+        resultado.siguientePaso;
+
+
+    break;
+}
 
 
 

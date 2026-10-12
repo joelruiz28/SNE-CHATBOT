@@ -1,10 +1,6 @@
 const db = require("../config/database");
 
 
-// =====================================================
-// OBTENER TODAS LAS PERSONAS
-// =====================================================
-
 async function obtenerPersonas() {
 
     const resultado = await db.query(`
@@ -41,10 +37,6 @@ async function obtenerPersonas() {
     return resultado.rows;
 }
 
-
-// =====================================================
-// OBTENER PERSONA POR ID
-// =====================================================
 
 async function obtenerPersonaPorId(id) {
 

@@ -1,7 +1,5 @@
 const db = require("../config/database");
 
-
-
 async function obtenerUbicacionPorCodigoPostal(codigoPostal) {
 
     if (!codigoPostal) {
@@ -49,18 +47,15 @@ function obtenerPrioridadProximidad(
         .toUpperCase();
 
 
-    // =================================================
-    // MISMO MUNICIPIO
-    // =================================================
 
+    // MISMO MUNICIPIO
     if (usuario === vacante) {
         return 0;
     }
 
 
-    // =================================================
     // ORDEN DE PROXIMIDAD
-    // =================================================
+
 
     const proximidad = {
 
@@ -153,10 +148,6 @@ function obtenerPrioridadProximidad(
     const lista = proximidad[usuario];
 
 
-    // =================================================
-    // MUNICIPIO CONOCIDO
-    // =================================================
-
     if (lista) {
 
         const posicion = lista.indexOf(vacante);
@@ -168,26 +159,17 @@ function obtenerPrioridadProximidad(
     }
 
 
-    // =================================================
-    // OTRO MUNICIPIO DE CHIAPAS
-    // =================================================
-
     if (entidad === "CHIAPAS") {
         return 50;
     }
 
 
-    // =================================================
-    // OTRO ESTADO
-    // =================================================
+
 
     return 100;
 }
 
 
-// =====================================================
-// ORDENAR VACANTES POR PROXIMIDAD
-// =====================================================
 
 function ordenarPorProximidad(
     vacantes,
@@ -235,8 +217,6 @@ function ordenarPorProximidad(
         });
 
 }
-
-
 
 
 module.exports = {

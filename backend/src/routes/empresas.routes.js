@@ -8,15 +8,11 @@ const {
 } = require("../controllers/empresas.controller");
 
 
-// GET /api/empresas
-
 router.get(
     "/",
     obtenerEmpresasController
 );
 
-
-// GET /api/empresas/:nombre
 
 router.get(
     "/:nombre",

@@ -41,7 +41,7 @@ async function procesarVacantes(
     const datosTemporales =
         sesion.datos_temporales || {};
 
-    // Datos para respuesta interactiva de WhatsApp
+
     let tipoRespuesta = null;
     let vacantesRespuesta = null;
     let escolaridadRespuesta = null;
@@ -49,7 +49,7 @@ async function procesarVacantes(
     let entidadRespuesta = null;
 
 
-    // Normalizar mensaje
+
     mensaje = String(mensaje || "")
         .trim()
         .toLowerCase();
@@ -60,7 +60,7 @@ async function procesarVacantes(
 
         case "esperando_escolaridad": {
 
-            // Menú principal
+           
             if (mensaje === "6") {
 
                 respuesta = `
@@ -71,7 +71,7 @@ async function procesarVacantes(
 1️⃣ Buscar vacantes
 2️⃣ Ver mis datos
 3️⃣ Actualizar mis datos
-4️⃣ Consultar mi folio
+4️⃣ Mis postulaciones
 5️⃣ Hablar con un asesor
 6️⃣ Menú principal
 7️⃣ Salir
@@ -82,7 +82,7 @@ async function procesarVacantes(
             }
 
 
-            // Salir
+           
             if (mensaje === "7") {
 
                 respuesta = `
@@ -307,7 +307,7 @@ Puedes intentar con otro nivel de estudios.
                 vacantes.slice(0, 10);
 
 
-            // Guardar IDs de las vacantes encontradas
+            
             datosTemporales.vacantes_encontradas =
                 vacantesMostrar.map(
                     v => v.id
@@ -328,7 +328,7 @@ Puedes intentar con otro nivel de estudios.
             );
 
 
-            // Preparar respuesta interactiva
+          
             respuesta = `
 🔎 *Encontré ${vacantesMostrar.length} vacantes para ti*
 
@@ -367,7 +367,7 @@ Selecciona una vacante para consultar sus detalles.
 
         case "esperando_codigo_postal_busqueda": {
 
-            // Menú principal
+          
             if (mensaje === "6") {
 
                 respuesta = `
@@ -378,7 +378,7 @@ Selecciona una vacante para consultar sus detalles.
 1️⃣ Buscar vacantes
 2️⃣ Ver mis datos
 3️⃣ Actualizar mis datos
-4️⃣ Consultar mi folio
+4️⃣ Mis postulaciones
 5️⃣ Hablar con un asesor
 6️⃣ Menú principal
 7️⃣ Salir
@@ -390,7 +390,7 @@ Selecciona una vacante para consultar sus detalles.
             }
 
 
-            // Salir
+          
             if (mensaje === "7") {
 
                 respuesta = `
@@ -407,7 +407,7 @@ Cuando necesites nuevamente nuestros servicios, aquí estaremos.
             }
 
 
-            // Validar 5 dígitos
+            
             if (!/^\d{5}$/.test(mensaje)) {
 
                 respuesta = `
@@ -432,7 +432,7 @@ Ejemplo:
             }
 
 
-            // Buscar ubicación
+           
             const ubicacion =
                 await obtenerUbicacionPorCodigoPostal(
                     mensaje
@@ -465,7 +465,7 @@ Ejemplo:
             }
 
 
-            // Guardar CP
+           
             datosTemporales.codigo_postal =
                 mensaje;
 
@@ -498,7 +498,7 @@ Por favor inicia nuevamente la búsqueda.
             }
 
 
-            // Buscar vacantes
+            
             let vacantes =
                 await buscarVacantes(
                     escolaridad
@@ -540,7 +540,7 @@ Puedes intentar con otro nivel de estudios.
                 vacantes.slice(0, 10);
 
 
-            // Guardar IDs de las vacantes encontradas
+            
             datosTemporales.vacantes_encontradas =
                 vacantesMostrar.map(
                     v => v.id
@@ -561,7 +561,6 @@ Puedes intentar con otro nivel de estudios.
             );
 
 
-            // Preparar respuesta interactiva
             respuesta = `
 🔎 *Encontré ${vacantesMostrar.length} vacantes para ti*
 
@@ -610,7 +609,7 @@ Selecciona una vacante para consultar sus detalles.
 1️⃣ Buscar vacantes
 2️⃣ Ver mis datos
 3️⃣ Actualizar mis datos
-4️⃣ Consultar mi folio
+4️⃣ Mis postulaciones
 5️⃣ Hablar con un asesor
 6️⃣ Menú principal
 7️⃣ Salir
@@ -675,8 +674,6 @@ Realiza nuevamente la búsqueda.
                     parseInt(idTexto);
 
 
-                // Verificar que la vacante
-                // pertenezca a las encontradas
                 const ids =
                     datosTemporales
                         .vacantes_encontradas || [];
@@ -856,7 +853,7 @@ ${vacante.numero_plazas || "No especificado"}
 1️⃣ Buscar vacantes
 2️⃣ Ver mis datos
 3️⃣ Actualizar mis datos
-4️⃣ Consultar mi folio
+4️⃣ Mis postulaciones
 5️⃣ Hablar con un asesor
 6️⃣ Menú principal
 7️⃣ Salir
@@ -985,9 +982,6 @@ Por favor realiza una nueva búsqueda.
                         );
 
 
-                    /*
-                     * Verificar si ya estaba postulado
-                     */
 
                     if (!postulacion) {
 
@@ -999,7 +993,7 @@ No es necesario volver a postularte.
 ¿Qué deseas hacer?
 
 1️⃣ Buscar más vacantes
-2️⃣ Menú principal
+6️⃣ Menú principal
 7️⃣ Salir
 `;
 
@@ -1010,18 +1004,9 @@ No es necesario volver a postularte.
                     }
 
 
-                    /*
-                     * ==========================================
-                     * POSTULACIÓN REGISTRADA CORRECTAMENTE
-                     * ==========================================
-                     */
 
                     try {
 
-                        /*
-                         * Obtener información completa
-                         * de la postulación
-                         */
 
                         const datosComprobante =
                             await obtenerDatosComprobante(
@@ -1118,16 +1103,7 @@ No es necesario volver a postularte.
 
                     } catch (error) {
 
-                        /*
-                         * IMPORTANTE:
-                         *
-                         * La postulación ya fue registrada
-                         * en la base de datos.
-                         *
-                         * Si falla el PDF o WhatsApp,
-                         * NO debemos decir que falló
-                         * la postulación.
-                         */
+
 
                         console.error(
                             "🔴 Error generando o enviando comprobante:"
@@ -1140,12 +1116,6 @@ No es necesario volver a postularte.
 
                     }
 
-
-                    /*
-                     * ==========================================
-                     * MENSAJE FINAL AL USUARIO
-                     * ==========================================
-                     */
 
                     respuesta = `
 ✅ *¡Postulación exitosa!*
@@ -1162,7 +1132,7 @@ Este comprobante confirma que tu solicitud fue registrada. Un asesor o reclutado
 ¿Qué deseas hacer?
 
 1️⃣ Buscar más vacantes
-2️⃣ Menú principal
+6️⃣ Menú principal
 7️⃣ Salir
 `;
 
@@ -1231,7 +1201,7 @@ Este comprobante confirma que tu solicitud fue registrada. Un asesor o reclutado
 1️⃣ Buscar vacantes
 2️⃣ Ver mis datos
 3️⃣ Actualizar mis datos
-4️⃣ Consultar mi folio
+4️⃣ Mis postulaciones
 5️⃣ Hablar con un asesor
 6️⃣ Menú principal
 7️⃣ Salir
@@ -1411,7 +1381,7 @@ Regresaremos al menú principal.
         respuesta,
         siguientePaso,
 
-        // Datos para WhatsApp Interactive List
+
         tipoRespuesta,
         vacantes: vacantesRespuesta,
         escolaridad: escolaridadRespuesta,

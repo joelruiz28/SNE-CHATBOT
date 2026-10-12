@@ -5,9 +5,6 @@ const {
 } = require("../services/vacantes.service");
 
 
-// =====================================================
-// LISTAR VACANTES
-// =====================================================
 
 async function listarVacantes(req, res) {
 
@@ -35,9 +32,6 @@ async function listarVacantes(req, res) {
 }
 
 
-// =====================================================
-// OBTENER VACANTE POR ID
-// =====================================================
 
 async function obtenerVacante(req, res) {
 
@@ -74,9 +68,6 @@ async function obtenerVacante(req, res) {
     }
 }
 
-// =====================================================
-// ACTUALIZAR ESTADO DE VACANTE
-// =====================================================
 
 async function cambiarEstadoVacante(req, res) {
 

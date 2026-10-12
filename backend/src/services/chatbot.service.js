@@ -33,6 +33,11 @@ const {
 } = require("../flows/folio.flow");
 
 
+const {
+    procesarPostulaciones
+} = require("../flows/postulaciones.flow");
+
+
 async function procesarMensaje(
     sesion,
     mensaje,
@@ -44,7 +49,7 @@ async function procesarMensaje(
     let siguientePaso =
         sesion.paso_actual;
 
-    // Datos adicionales para respuestas interactivas
+
     let tipoRespuesta = null;
     let vacantes = null;
     let escolaridad = null;
@@ -94,7 +99,7 @@ Hasta pronto.`,
 1️⃣ Buscar vacantes
 2️⃣ Registrar mis datos
 3️⃣ Actualizar mis datos
-4️⃣ Consultar mi folio
+4️⃣ Mis postulaciones
 5️⃣ Hablar con un asesor
 6️⃣ Menú principal
 7️⃣ Salir`,
@@ -118,7 +123,7 @@ Hasta pronto.`,
 1️⃣ Buscar vacantes
 2️⃣ Registrar mis datos
 3️⃣ Actualizar mis datos
-4️⃣ Consultar mi folio
+4️⃣ Mis postulaciones
 5️⃣ Hablar con un asesor
 6️⃣ Menú principal
 7️⃣ Salir`;
@@ -241,7 +246,6 @@ Hasta pronto.`,
                 resultado.siguientePaso;
 
 
-            // Información adicional para respuestas interactivas
             tipoRespuesta =
                 resultado.tipoRespuesta || null;
 
@@ -257,6 +261,28 @@ Hasta pronto.`,
             entidad =
                 resultado.entidad || null;
 
+
+            break;
+        }
+
+
+        case "postulaciones":
+        case "seleccionar_postulacion":
+        case "detalle_postulacion":
+        case "informacion_postulacion": {
+
+            const resultado =
+                await procesarPostulaciones(
+                    sesion,
+                    mensaje,
+                    telefono
+                );
+
+            respuesta =
+                resultado.respuesta;
+
+            siguientePaso =
+                resultado.siguientePaso;
 
             break;
         }
@@ -317,7 +343,6 @@ Por favor, escribe "inicio" para volver al menú principal.`;
         respuesta,
         siguientePaso,
 
-        // Datos utilizados por WhatsApp
         tipoRespuesta,
         vacantes,
         escolaridad,
