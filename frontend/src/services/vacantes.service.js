@@ -59,9 +59,7 @@ export async function obtenerVacantePorId(id) {
     }
 }
 
-// ==========================================
-// ACTUALIZAR ESTADO DE VACANTE
-// ==========================================
+
 
 export async function actualizarEstadoVacante(
     id,

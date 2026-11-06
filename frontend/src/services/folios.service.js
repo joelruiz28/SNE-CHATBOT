@@ -1,7 +1,3 @@
-// ============================================
-// OBTENER RESUMEN Y FOLIOS
-// ============================================
-
 export async function obtenerResumenFolios() {
 
     const response = await fetch(
@@ -26,10 +22,6 @@ export async function obtenerResumenFolios() {
     return datos;
 }
 
-
-// ============================================
-// BUSCAR FOLIO
-// ============================================
 
 export async function buscarFolio(folio) {
 

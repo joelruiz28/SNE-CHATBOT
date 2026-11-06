@@ -1,3 +1,4 @@
+
 const {
     actualizarDato,
     actualizarDatoPorId
@@ -7,7 +8,9 @@ const {
     validarCorreo
 } = require("../utils/validaciones");
 
-
+const {
+    obtenerOpcionesActualizacion
+} = require("../utils/opciones-actualizacion");
 
 
 async function actualizarDatoUsuario(
@@ -16,7 +19,6 @@ async function actualizarDatoUsuario(
     campo,
     valor
 ) {
-
     const datosTemporales =
         sesion.datos_temporales || {};
 
@@ -26,12 +28,7 @@ async function actualizarDatoUsuario(
     const seguridadVerificada =
         datosTemporales.seguridad_verificada === true;
 
-
-    if (
-        seguridadVerificada &&
-        usuarioAutorizadoId
-    ) {
-
+    if (seguridadVerificada && usuarioAutorizadoId) {
         console.log(
             "🔐 Actualizando registro autorizado."
         );
@@ -50,7 +47,6 @@ async function actualizarDatoUsuario(
         return;
     }
 
-
     console.log(
         "📱 Actualizando usuario mediante teléfono:",
         telefono
@@ -64,117 +60,100 @@ async function actualizarDatoUsuario(
 }
 
 
-
 async function procesarActualizacion(
     sesion,
     mensaje,
     telefono
 ) {
-
     let respuesta = "";
+    let siguientePaso = sesion.paso_actual;
+    let mostrarMenuPrincipal = false;
+    let tipoRespuesta = null;
+    let opcionesMenu = null;
 
-    let siguientePaso =
-        sesion.paso_actual;
-
+    const seleccion = String(mensaje).trim();
 
     switch (sesion.paso_actual) {
 
+        // =====================================
+        // SELECCIONAR DATO
+        // =====================================
+
         case "seleccionar_actualizacion":
 
-            switch (mensaje) {
+            switch (seleccion) {
 
-                // =====================================
-                // CORREO
-                // =====================================
-
+                case "actualizar_correo":
                 case "1":
 
                     respuesta = `
-📧 Escribe tu nuevo correo electrónico.
+📧 *Actualizar correo*
+
+Escribe tu nuevo correo electrónico.
 
 Ejemplo:
 usuario@gmail.com
-
-6️⃣ Menú principal
-7️⃣ Salir
 `;
 
-                    siguientePaso =
-                        "actualizar_correo";
+                    siguientePaso = "actualizar_correo";
 
                     break;
 
 
-                // =====================================
-                // CÓDIGO POSTAL
-                // =====================================
-
+                case "actualizar_codigo_postal":
                 case "2":
 
                     respuesta = `
-📮 Escribe tu nuevo código postal.
+📮 *Actualizar código postal*
 
-Debe contener 5 dígitos.
+Escribe tu nuevo código postal.
+
+Debe contener exactamente 5 dígitos.
 
 Ejemplo:
 29000
-
-6️⃣ Menú principal
-7️⃣ Salir
 `;
 
-                    siguientePaso =
-                        "actualizar_codigo_postal";
+                    siguientePaso = "actualizar_codigo_postal";
 
                     break;
 
 
+                case "menu_principal":
                 case "6":
 
-                    respuesta = `
-👋 *Menú principal*
+                    respuesta =
+                        "Volvamos al menú principal.";
 
-¿Qué deseas hacer?
-
-1️⃣ Buscar vacantes
-2️⃣ Ver mis datos
-3️⃣ Actualizar mis datos
-4️⃣ Mis postulaciones
-5️⃣ Hablar con un asesor
-6️⃣ Menú principal
-7️⃣ Salir
-`;
-
-                    siguientePaso =
-                        "menu";
+                    siguientePaso = "menu";
+                    mostrarMenuPrincipal = true;
 
                     break;
 
+
+                case "salir":
                 case "7":
 
                     respuesta = `
-👋 Gracias por utilizar el asistente SNE.
+👋 Gracias por utilizar el asistente del SNE Chiapas.
 `;
 
-                    siguientePaso =
-                        "finalizado";
+                    siguientePaso = "finalizado";
 
                     break;
 
 
                 default:
 
-                    respuesta = `
-⚠️ Selecciona una opción válida.
-
-1️⃣ Correo
-2️⃣ Código postal
-6️⃣ Menú principal
-7️⃣ Salir
-`;
+                    respuesta =
+                        "⚠️ Selecciona una opción del menú de actualización.";
 
                     siguientePaso =
                         "seleccionar_actualizacion";
+
+                    tipoRespuesta = "menu_interactivo";
+                    opcionesMenu =
+                        obtenerOpcionesActualizacion();
 
                     break;
             }
@@ -182,146 +161,122 @@ Ejemplo:
             break;
 
 
-        case "actualizar_correo":
+        // =====================================
+        // ACTUALIZAR CORREO
+        // =====================================
 
+        case "actualizar_correo": {
 
-            if (mensaje === "6") {
-    respuesta = `📋 *MENÚ PRINCIPAL*
+            if (
+                seleccion === "menu_principal" ||
+                seleccion === "6"
+            ) {
+                respuesta =
+                    "Volvamos al menú principal.";
 
-¿Qué deseas hacer?
-
-1️⃣ Buscar vacantes
-2️⃣ Ver mis datos
-3️⃣ Actualizar mis datos
-4️⃣ Mis postulaciones
-5️⃣ Hablar con un asesor
-6️⃣ Menú principal
-7️⃣ Salir`;
-
-    siguientePaso = "menu";
-    break;
-}
-
-
-            if (mensaje === "7") {
-
-                respuesta = `
-👋 Gracias por utilizar el asistente SNE.
-`;
-
-                siguientePaso =
-                    "finalizado";
+                siguientePaso = "menu";
+                mostrarMenuPrincipal = true;
 
                 break;
             }
 
-            if (!validarCorreo(mensaje.trim())) {
-
+            if (
+                seleccion === "salir" ||
+                seleccion === "7"
+            ) {
                 respuesta = `
-⚠️ Escribe un correo válido.
+👋 Gracias por utilizar el asistente del SNE Chiapas.
+`;
+
+                siguientePaso = "finalizado";
+
+                break;
+            }
+
+            const correo = seleccion;
+
+            if (!validarCorreo(correo)) {
+                respuesta = `
+⚠️ Escribe un correo electrónico válido.
 
 Ejemplo:
 usuario@gmail.com
 
-6️⃣ Menú principal
-7️⃣ Salir
+También puedes elegir Menú principal o Finalizar atención en las opciones.
 `;
+
+                siguientePaso = "actualizar_correo";
 
                 break;
             }
-
 
             await actualizarDatoUsuario(
                 sesion,
                 telefono,
                 "correo",
-                mensaje.trim()
+                correo
             );
 
+            respuesta = `✅ *Correo actualizado correctamente.*
 
-            respuesta = `
-✅ Correo actualizado correctamente.
+📧 *Nuevo correo:*
+${correo}`;
 
-📧 Nuevo correo:
-${mensaje.trim()}
-
-━━━━━━━━━━━━━━━━━━
-
-¿Qué deseas hacer?
-
-1️⃣ Buscar vacantes
-2️⃣ Ver mis datos
-3️⃣ Actualizar mis datos
-4️⃣ Mis postulaciones
-5️⃣ Hablar con un asesor
-6️⃣ Menú principal
-7️⃣ Salir
-`;
-
-siguientePaso =
-    "menu";
+            siguientePaso = "menu";
+            mostrarMenuPrincipal = true;
 
             break;
+        }
 
-        case "actualizar_codigo_postal":
 
+        // =====================================
+        // ACTUALIZAR CÓDIGO POSTAL
+        // =====================================
 
-            if (mensaje === "6") {
+        case "actualizar_codigo_postal": {
 
-                respuesta = `
-👋 *Menú principal*
+            if (
+                seleccion === "menu_principal" ||
+                seleccion === "6"
+            ) {
+                respuesta =
+                    "Volvamos al menú principal.";
 
-¿Qué deseas hacer?
-
-1️⃣ Buscar vacantes
-2️⃣ Ver mis datos
-3️⃣ Actualizar mis datos
-4️⃣ Mis postulaciones
-5️⃣ Hablar con un asesor
-6️⃣ Menú principal
-7️⃣ Salir
-`;
-
-                siguientePaso =
-                    "menu";
+                siguientePaso = "menu";
+                mostrarMenuPrincipal = true;
 
                 break;
             }
 
-
-
-            if (mensaje === "7") {
-
+            if (
+                seleccion === "salir" ||
+                seleccion === "7"
+            ) {
                 respuesta = `
-👋 Gracias por utilizar el asistente SNE.
+👋 Gracias por utilizar el asistente del SNE Chiapas.
 `;
 
-                siguientePaso =
-                    "finalizado";
+                siguientePaso = "finalizado";
 
                 break;
             }
 
-
-            const codigoPostal =
-                mensaje.trim();
-
+            const codigoPostal = seleccion;
 
             if (!/^\d{5}$/.test(codigoPostal)) {
-
                 respuesta = `
 ⚠️ El código postal debe contener exactamente 5 dígitos.
 
 Ejemplo:
 29000
 
-6️⃣ Menú principal
-7️⃣ Salir
+También puedes elegir Menú principal o Finalizar atención en las opciones.
 `;
+
+                siguientePaso = "actualizar_codigo_postal";
 
                 break;
             }
-
 
             await actualizarDatoUsuario(
                 sesion,
@@ -330,30 +285,17 @@ Ejemplo:
                 codigoPostal
             );
 
+            respuesta = `✅ *Código postal actualizado correctamente.*
 
-            respuesta = `
-✅ Código postal actualizado correctamente.
+📮 *Nuevo código postal:*
+${codigoPostal}`;
 
-📮 Nuevo código postal:
-${codigoPostal}
-
-━━━━━━━━━━━━━━━━━━
-
-¿Qué deseas hacer?
-
-1️⃣ Buscar vacantes
-2️⃣ Ver mis datos
-3️⃣ Actualizar mis datos
-4️⃣ Mis postulaciones
-5️⃣ Hablar con un asesor
-6️⃣ Menú principal
-7️⃣ Salir
-`;
-
-siguientePaso =
-    "menu";
+            siguientePaso = "menu";
+            mostrarMenuPrincipal = true;
 
             break;
+        }
+
 
         default:
 
@@ -361,16 +303,18 @@ siguientePaso =
 ⚠️ No se encontró un proceso de actualización válido.
 `;
 
-            siguientePaso =
-                "menu";
+            siguientePaso = "menu";
+            mostrarMenuPrincipal = true;
 
             break;
     }
 
-
     return {
         respuesta,
-        siguientePaso
+        siguientePaso,
+        mostrarMenuPrincipal,
+        tipoRespuesta,
+        opcionesMenu
     };
 }
 

@@ -10,10 +10,6 @@ const {
 } = require("../services/reportes.service");
 
 
-// =====================================================
-// RESUMEN
-// =====================================================
-
 async function obtenerResumen(req, res) {
 
     try {
@@ -38,9 +34,6 @@ async function obtenerResumen(req, res) {
 }
 
 
-// =====================================================
-// PERSONAS POR MUNICIPIO
-// =====================================================
 
 async function personasPorMunicipio(req, res) {
 
@@ -66,9 +59,6 @@ async function personasPorMunicipio(req, res) {
 }
 
 
-// =====================================================
-// PUESTOS MÁS SOLICITADOS
-// =====================================================
 
 async function puestosMasSolicitados(req, res) {
 
@@ -94,10 +84,6 @@ async function puestosMasSolicitados(req, res) {
 }
 
 
-// =====================================================
-// VACANTES POR MUNICIPIO
-// =====================================================
-
 async function vacantesPorMunicipio(req, res) {
 
     try {
@@ -122,9 +108,6 @@ async function vacantesPorMunicipio(req, res) {
 }
 
 
-// =====================================================
-// VACANTES POR ÁREA
-// =====================================================
 
 async function vacantesPorArea(req, res) {
 
@@ -150,9 +133,6 @@ async function vacantesPorArea(req, res) {
 }
 
 
-// =====================================================
-// EMPRESAS
-// =====================================================
 
 async function empresasConMasVacantes(req, res) {
 
@@ -178,10 +158,6 @@ async function empresasConMasVacantes(req, res) {
 }
 
 
-// =====================================================
-// DEMANDA VS OFERTA
-// =====================================================
-
 async function demandaVsOferta(req, res) {
 
     try {
@@ -204,9 +180,6 @@ async function demandaVsOferta(req, res) {
 
     }
 }
-// =====================================================
-// DASHBOARD GENERAL
-// =====================================================
 
 async function obtenerDashboard(req, res) {
 

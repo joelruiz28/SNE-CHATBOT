@@ -50,7 +50,14 @@ function Personas() {
         return personas.filter((persona) => {
             const coincideBusqueda =
                 busqueda.trim() === "" ||
-                [persona.nombre_completo, persona.folio, persona.municipio, persona.puesto_solicitado]
+                [
+    persona.nombre_completo,
+    persona.folio,
+    persona.curp,
+    persona.codigo_postal,
+    persona.telefono,
+    persona.correo
+]
                     .filter(Boolean)
                     .some((campo) =>
                         campo.toString().toLowerCase().includes(busqueda.trim().toLowerCase())
@@ -119,7 +126,7 @@ function Personas() {
                     <span className="personas-search-icon">🔍</span>
                     <input
                         type="text"
-                        placeholder="Buscar por nombre, folio, municipio o puesto..."
+                        placeholder="Buscar por nombre, folio, CURP, código postal o teléfono..."
                         value={busqueda}
                         onChange={(e) => setBusqueda(e.target.value)}
                     />
@@ -166,58 +173,67 @@ function Personas() {
             {!cargando && !error && personasFiltradas.length > 0 && (
                 <section className="personas-table-container">
                     <table className="personas-table">
-                        <thead>
-                            <tr>
-                                <th>Folio</th>
-                                <th>Nombre</th>
-                                <th>Municipio</th>
-                                <th>Puesto solicitado</th>
-                                <th>Nivel de estudios</th>
-                                <th>Perfil</th>
-                                <th>Registro</th>
-                            </tr>
-                        </thead>
+                       <thead>
+                                 <tr>
+                               <th>Folio</th>
+                               <th>Nombre</th>
+                              <th>CURP</th>
+                             <th>Código postal</th>
+                             <th>Teléfono</th>
+                         <th>Perfil</th>
+                         <th>Registro</th>
+                          </tr>
+                         </thead>
 
-                        <tbody>
-                            {personasFiltradas.map((persona) => (
-                                <tr key={persona.id}>
-                                    <td>
-                                        <span className="personas-folio">
-                                            {persona.folio || "Sin folio"}
-                                        </span>
-                                    </td>
+                      
+<tbody>
+    {personasFiltradas.map((persona) => (
+        <tr key={persona.id}>
+            <td>
+                <span className="personas-folio">
+                    {persona.folio || "Sin folio"}
+                </span>
+            </td>
 
-                                    <td>
-                                        <div className="personas-nombre-cell">
-                                            <span className="personas-avatar">
-                                                {obtenerIniciales(persona.nombre_completo)}
-                                            </span>
-                                            <strong>{persona.nombre_completo || "Sin nombre"}</strong>
-                                        </div>
-                                    </td>
+            <td>
+                <div className="personas-nombre-cell">
+                    <span className="personas-avatar">
+                        {obtenerIniciales(persona.nombre_completo)}
+                    </span>
+                    <strong>
+                        {persona.nombre_completo || "Sin nombre"}
+                    </strong>
+                </div>
+            </td>
 
-                                    <td>{persona.municipio || "Sin municipio"}</td>
+            <td>{persona.curp || "Sin CURP"}</td>
 
-                                    <td>{persona.puesto_solicitado || "Sin especificar"}</td>
+            <td>{persona.codigo_postal || "Sin código postal"}</td>
 
-                                    <td>{persona.nivel_estudios || "Sin especificar"}</td>
+            <td>{persona.telefono || "Sin teléfono"}</td>
 
-                                    <td>
-                                        {persona.perfil_completo ? (
-                                            <span className="perfil-completo">✓ Completo</span>
-                                        ) : (
-                                            <span className="perfil-pendiente">! Pendiente</span>
-                                        )}
-                                    </td>
+            <td>
+                {persona.perfil_completo ? (
+                    <span className="perfil-completo">
+                        ✓ Completo
+                    </span>
+                ) : (
+                    <span className="perfil-pendiente">
+                        ! Pendiente
+                    </span>
+                )}
+            </td>
 
-                                    <td>
-                                        {persona.fecha_registro
-                                            ? new Date(persona.fecha_registro).toLocaleDateString("es-MX")
-                                            : "Sin fecha"}
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
+            <td>
+                {persona.fecha_registro
+                    ? new Date(persona.fecha_registro)
+                        .toLocaleDateString("es-MX")
+                    : "Sin fecha"}
+            </td>
+        </tr>
+    ))}
+</tbody>
+
                     </table>
                 </section>
             )}

@@ -1,7 +1,3 @@
-// ==========================================
-// OBTENER DASHBOARD DE REPORTES
-// ==========================================
-
 export async function obtenerDashboardReportes() {
 
     const response = await fetch(

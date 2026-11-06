@@ -37,7 +37,7 @@ const NAV_ITEMS = [
   { to: "/personas", label: "Personas", icon: "users" },
   { to: "/vacantes", label: "Vacantes", icon: "briefcase" },
   { to: "/empresas", label: "Empresas", icon: "building" },
-  { to: "/folios", label: "Folios", icon: "file" },
+  { to: "/postulaciones", label: "Postulaciones", icon: "file" },
   { to: "/reportes", label: "Reportes", icon: "chart" },
 ];
 

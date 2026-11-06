@@ -1,77 +1,94 @@
 const db = require("../config/database");
 
-
-
 async function obtenerResumenReportes() {
+    const [
+        personas,
+        folios,
+        vacantes,
+        empresas
+    ] = await Promise.all([
+        db.query(`
+            SELECT
+                COUNT(*) AS total,
 
-    const personas = await db.query(`
-        SELECT
-            COUNT(*) AS total,
+                COUNT(*) FILTER (
+                    WHERE perfil_completo = TRUE
+                ) AS completos,
 
-            COUNT(*) FILTER (
-                WHERE perfil_completo = TRUE
-            ) AS completos,
+                COUNT(*) FILTER (
+                    WHERE perfil_completo = FALSE
+                    OR perfil_completo IS NULL
+                ) AS pendientes
 
-            COUNT(*) FILTER (
-                WHERE perfil_completo = FALSE
-                OR perfil_completo IS NULL
-            ) AS pendientes
+            FROM buscadores_empleo
+        `),
 
-        FROM buscadores_empleo
-    `);
+        db.query(`
+            SELECT COUNT(*) AS total
+            FROM buscadores_empleo
+            WHERE folio IS NOT NULL
+              AND TRIM(folio) <> ''
+        `),
 
+        db.query(`
+            SELECT
+                COUNT(*) AS total,
 
-    const folios = await db.query(`
-        SELECT
-            COUNT(*) AS total
+                COUNT(*) FILTER (
+                    WHERE estado = 1
+                ) AS activas,
 
-        FROM buscadores_empleo
+                COUNT(*) FILTER (
+                    WHERE estado = 0
+                ) AS inactivas,
 
-        WHERE folio IS NOT NULL
-        AND TRIM(folio) <> ''
-    `);
+                COALESCE(
+                    SUM(
+                        CASE
+                            WHEN estado = 1
+                            THEN COALESCE(numero_plazas, 0)
+                            ELSE 0
+                        END
+                    ),
+                    0
+                ) AS plazas_activas,
 
+                COALESCE(
+                    SUM(
+                        CASE
+                            WHEN estado = 0
+                            THEN COALESCE(numero_plazas, 0)
+                            ELSE 0
+                        END
+                    ),
+                    0
+                ) AS plazas_inactivas,
 
-    const vacantes = await db.query(`
-        SELECT
-            COUNT(*) AS total,
+                COUNT(*) FILTER (
+                    WHERE estado = 1
+                      AND vigencia >= CURRENT_DATE
+                      AND vigencia <= CURRENT_DATE + 30
+                ) AS por_vencer,
 
-            COUNT(*) FILTER (
-                WHERE LOWER(COALESCE(estado, 'activa')) = 'activa'
-            ) AS activas,
+                COUNT(*) FILTER (
+                    WHERE estado = 1
+                      AND vigencia < CURRENT_DATE
+                ) AS vencidas_activas
 
-            COUNT(*) FILTER (
-                WHERE LOWER(COALESCE(estado, 'activa')) = 'inactiva'
-            ) AS inactivas,
+            FROM vacantes_externas
+        `),
 
-            COALESCE(
-                SUM(
-                    CASE
-                        WHEN numero_plazas IS NOT NULL
-                        THEN numero_plazas
-                        ELSE 0
-                    END
-                ),
-                0
-            ) AS plazas
+        db.query(`
+            SELECT COUNT(DISTINCT LOWER(TRIM(empresa))) AS total
+            FROM vacantes_externas
+            WHERE empresa IS NOT NULL
+              AND TRIM(empresa) <> ''
+        `)
+    ]);
 
-        FROM vacantes
-    `);
+    const v = vacantes.rows[0];
 
-
-    const empresas = await db.query(`
-        SELECT
-            COUNT(DISTINCT empresa) AS total
-
-        FROM vacantes
-
-        WHERE empresa IS NOT NULL
-        AND TRIM(empresa) <> ''
-    `);
-
-
-    return {
-
+    const resumen = {
         personas: {
             total: Number(personas.rows[0].total),
             completos: Number(personas.rows[0].completos),
@@ -83,23 +100,30 @@ async function obtenerResumenReportes() {
         },
 
         vacantes: {
-            total: Number(vacantes.rows[0].total),
-            activas: Number(vacantes.rows[0].activas),
-            inactivas: Number(vacantes.rows[0].inactivas),
-            plazas: Number(vacantes.rows[0].plazas)
+            total: Number(v.total),
+            activas: Number(v.activas),
+            inactivas: Number(v.inactivas),
+            plazasActivas: Number(v.plazas_activas),
+            plazasInactivas: Number(v.plazas_inactivas),
+            porVencer: Number(v.por_vencer),
+            vencidasActivas: Number(v.vencidas_activas)
         },
 
         empresas: {
             total: Number(empresas.rows[0].total)
         }
-
     };
+
+    resumen.vacantes.plazas = (
+        resumen.vacantes.plazasActivas +
+        resumen.vacantes.plazasInactivas
+    );
+
+    return resumen;
 }
 
 
-
 async function obtenerPersonasPorMunicipio() {
-
     const resultado = await db.query(`
         SELECT
             INITCAP(TRIM(municipio)) AS municipio,
@@ -108,7 +132,7 @@ async function obtenerPersonasPorMunicipio() {
         FROM buscadores_empleo
 
         WHERE municipio IS NOT NULL
-        AND TRIM(municipio) <> ''
+          AND TRIM(municipio) <> ''
 
         GROUP BY INITCAP(TRIM(municipio))
 
@@ -122,44 +146,60 @@ async function obtenerPersonasPorMunicipio() {
 }
 
 
-
-async function obtenerPuestosMasSolicitados() {
-
+async function obtenerPuestosConMayorOferta() {
     const resultado = await db.query(`
         SELECT
-            INITCAP(TRIM(puesto_solicitado)) AS puesto,
-            COUNT(*) AS total
+            MIN(TRIM(puesto)) AS puesto,
+            COUNT(*) AS total_vacantes,
+            COALESCE(
+                SUM(COALESCE(numero_plazas, 0)),
+                0
+            ) AS plazas
 
-        FROM buscadores_empleo
+        FROM vacantes_externas
 
-        WHERE puesto_solicitado IS NOT NULL
-        AND TRIM(puesto_solicitado) <> ''
+        WHERE estado = 1
+          AND puesto IS NOT NULL
+          AND TRIM(puesto) <> ''
 
-        GROUP BY INITCAP(TRIM(puesto_solicitado))
+        GROUP BY LOWER(TRIM(puesto))
 
-        ORDER BY total DESC, puesto ASC
+        ORDER BY
+            total_vacantes DESC,
+            plazas DESC,
+            puesto ASC
 
         LIMIT 10
     `);
 
     return resultado.rows.map((item) => ({
         puesto: item.puesto,
-        total: Number(item.total)
+        totalVacantes: Number(item.total_vacantes),
+        plazas: Number(item.plazas)
     }));
 }
 
 
-async function obtenerVacantesPorMunicipio() {
+async function obtenerPuestosMasSolicitados() {
+    return obtenerPuestosConMayorOferta();
+}
 
+
+async function obtenerVacantesPorMunicipio() {
     const resultado = await db.query(`
         SELECT
             INITCAP(TRIM(municipio)) AS municipio,
-            COUNT(*) AS total
+            COUNT(*) AS total,
+            COALESCE(
+                SUM(COALESCE(numero_plazas, 0)),
+                0
+            ) AS plazas
 
-        FROM vacantes
+        FROM vacantes_externas
 
-        WHERE municipio IS NOT NULL
-        AND TRIM(municipio) <> ''
+        WHERE estado = 1
+          AND municipio IS NOT NULL
+          AND TRIM(municipio) <> ''
 
         GROUP BY INITCAP(TRIM(municipio))
 
@@ -168,66 +208,63 @@ async function obtenerVacantesPorMunicipio() {
 
     return resultado.rows.map((item) => ({
         municipio: item.municipio,
-        total: Number(item.total)
+        total: Number(item.total),
+        plazas: Number(item.plazas)
     }));
 }
 
 
 async function obtenerVacantesPorArea() {
-
     const resultado = await db.query(`
         SELECT
-            INITCAP(TRIM(area)) AS area,
-            COUNT(*) AS total
+            MIN(TRIM(area)) AS area,
+            COUNT(*) AS total,
+            COALESCE(
+                SUM(COALESCE(numero_plazas, 0)),
+                0
+            ) AS plazas
 
-        FROM vacantes
+        FROM vacantes_externas
 
-        WHERE area IS NOT NULL
-        AND TRIM(area) <> ''
+        WHERE estado = 1
+          AND area IS NOT NULL
+          AND TRIM(area) <> ''
 
-        GROUP BY INITCAP(TRIM(area))
+        GROUP BY LOWER(TRIM(area))
 
         ORDER BY total DESC, area ASC
     `);
 
     return resultado.rows.map((item) => ({
         area: item.area,
-        total: Number(item.total)
+        total: Number(item.total),
+        plazas: Number(item.plazas)
     }));
 }
 
 
 async function obtenerEmpresasConMasVacantes() {
-
     const resultado = await db.query(`
         SELECT
-            TRIM(empresa) AS empresa,
-
+            MIN(TRIM(empresa)) AS empresa,
             COUNT(*) AS total_vacantes,
-
-            COUNT(*) FILTER (
-                WHERE LOWER(COALESCE(estado, 'activa')) = 'activa'
-            ) AS vacantes_activas,
-
             COALESCE(
-                SUM(
-                    CASE
-                        WHEN numero_plazas IS NOT NULL
-                        THEN numero_plazas
-                        ELSE 0
-                    END
-                ),
+                SUM(COALESCE(numero_plazas, 0)),
                 0
             ) AS plazas
 
-        FROM vacantes
+        FROM vacantes_externas
 
-        WHERE empresa IS NOT NULL
-        AND TRIM(empresa) <> ''
+        WHERE estado = 1
+          AND empresa IS NOT NULL
+          AND TRIM(empresa) <> ''
 
-        GROUP BY TRIM(empresa)
+        GROUP BY LOWER(TRIM(empresa))
 
-        ORDER BY total_vacantes DESC, empresa ASC
+        ORDER BY
+            total_vacantes DESC,
+            plazas DESC,
+            empresa ASC
 
         LIMIT 10
     `);
@@ -235,247 +272,99 @@ async function obtenerEmpresasConMasVacantes() {
     return resultado.rows.map((item) => ({
         empresa: item.empresa,
         totalVacantes: Number(item.total_vacantes),
-        vacantesActivas: Number(item.vacantes_activas),
+        vacantesActivas: Number(item.total_vacantes),
         plazas: Number(item.plazas)
     }));
 }
 
 
-
-async function obtenerDemandaVsOferta() {
-
-    const resultado = await db.query(`
-        WITH demanda AS (
-
-            SELECT
-                LOWER(TRIM(puesto_solicitado)) AS puesto,
-                COUNT(*) AS personas
-
-            FROM buscadores_empleo
-
-            WHERE puesto_solicitado IS NOT NULL
-            AND TRIM(puesto_solicitado) <> ''
-
-            GROUP BY LOWER(TRIM(puesto_solicitado))
-
-        ),
-
-        oferta AS (
-
-            SELECT
-                LOWER(TRIM(puesto)) AS puesto,
-                COUNT(*) AS vacantes
-
-            FROM vacantes
-
-            WHERE puesto IS NOT NULL
-            AND TRIM(puesto) <> ''
-
-            GROUP BY LOWER(TRIM(puesto))
-
-        )
-
-        SELECT
-
-            INITCAP(
-                COALESCE(d.puesto, o.puesto)
-            ) AS puesto,
-
-            COALESCE(d.personas, 0) AS personas,
-
-            COALESCE(o.vacantes, 0) AS vacantes
-
-        FROM demanda d
-
-        FULL OUTER JOIN oferta o
-            ON d.puesto = o.puesto
-
-        ORDER BY
-            (COALESCE(d.personas, 0) + COALESCE(o.vacantes, 0)) DESC,
-
-            puesto ASC
-
-        LIMIT 10
-    `);
-
-    return resultado.rows.map((item) => {
-
-        const personas = Number(item.personas);
-        const vacantes = Number(item.vacantes);
-
-        let oportunidad = "Sin datos";
-
-        if (personas === 0 && vacantes > 0) {
-            oportunidad = "Oferta disponible";
-        } else if (personas > 0 && vacantes === 0) {
-            oportunidad = "Sin vacantes";
-        } else if (vacantes >= personas) {
-            oportunidad = "Alta";
-        } else if (vacantes > 0) {
-            oportunidad = "Media";
-        }
-
-        return {
-            puesto: item.puesto,
-            personas,
-            vacantes,
-            oportunidad
-        };
-    });
-}
-
-
+// =====================================================
+// DATOS PRINCIPALES DEL DASHBOARD DE REPORTES
+// =====================================================
 
 async function obtenerDashboardReportes() {
-
     const [
         resumen,
-        municipios,
+        municipiosPersonas,
         puestos,
-        vacantesMunicipio,
-        empresas,
-        demandaOferta
+        municipiosVacantes,
+        areas,
+        empresas
     ] = await Promise.all([
-
         obtenerResumenReportes(),
-
         obtenerPersonasPorMunicipio(),
-
-        obtenerPuestosMasSolicitados(),
-
+        obtenerPuestosConMayorOferta(),
         obtenerVacantesPorMunicipio(),
-
-        obtenerEmpresasConMasVacantes(),
-
-        obtenerDemandaVsOferta()
-
+        obtenerVacantesPorArea(),
+        obtenerEmpresasConMasVacantes()
     ]);
 
-
-
-    const personasSinVacante =
-        demandaOferta.filter(
-            item =>
-                item.personas > 0 &&
-                item.vacantes === 0
-        ).reduce(
-            (total, item) =>
-                total + item.personas,
-            0
-        );
-
-
-    const vacantesSinCandidatos =
-        demandaOferta.filter(
-            item =>
-                item.personas === 0 &&
-                item.vacantes > 0
-        ).reduce(
-            (total, item) =>
-                total + item.vacantes,
-            0
-        );
-
-
-    const coincidencias =
-        demandaOferta.filter(
-            item =>
-                item.personas > 0 &&
-                item.vacantes > 0
-        ).length;
-
-
-
     return {
-
         indicadores: {
+            // Personas registradas
+            personas: resumen.personas.total,
+            folios: resumen.folios.total,
+            perfilesCompletos: resumen.personas.completos,
+            perfilesPendientes: resumen.personas.pendientes,
 
-            personas:
-                resumen.personas.total,
+            // Oferta laboral
+            empresas: resumen.empresas.total,
+            vacantes: resumen.vacantes.total,
+            vacantesActivas: resumen.vacantes.activas,
+            vacantesInactivas: resumen.vacantes.inactivas,
 
-            empresas:
-                resumen.empresas.total,
-
-            vacantes:
-                resumen.vacantes.total,
-
-            vacantesActivas:
-                resumen.vacantes.activas,
-
-            folios:
-                resumen.folios.total,
-
-            perfilesCompletos:
-                resumen.personas.completos,
-
-            perfilesPendientes:
-                resumen.personas.pendientes
-
+            // Plazas y vigencias
+            totalPlazas: resumen.vacantes.plazas,
+            plazasActivas: resumen.vacantes.plazasActivas,
+            plazasInactivas: resumen.vacantes.plazasInactivas,
+            vacantesPorVencer: resumen.vacantes.porVencer,
+            vacantesVencidasActivas: resumen.vacantes.vencidasActivas
         },
 
-
-        vinculacion: {
-
-            personas:
-                resumen.personas.total,
-
-            vacantes:
-                resumen.vacantes.activas,
-
-            coincidencias,
-
-            personasSinVacante,
-
-            vacantesSinCandidatos
-
+        // Estadísticas independientes, sin cruces artificiales.
+        personas: {
+            resumen: resumen.personas,
+            municipios: municipiosPersonas
         },
 
+        ofertaLaboral: {
+            resumen: resumen.vacantes,
+            empresasTotal: resumen.empresas.total,
+            municipios: municipiosVacantes,
+            areas,
+            puestos,
+            empresas
+        },
 
-        oportunidades:
-            demandaOferta,
-
-
+        // Propiedades útiles para adaptar la interfaz existente.
         municipios: {
-
-            personas:
-                municipios,
-
-            vacantes:
-                vacantesMunicipio
-
+            personas: municipiosPersonas,
+            vacantes: municipiosVacantes
         },
-
 
         puestos,
-
-
+        areas,
         empresas,
 
-
+        // Solo alertas respaldadas por datos reales.
         alertas: {
-
-            personasSinVacante,
-
-            vacantesSinCandidatos,
-
-            coincidencias,
-
-            perfilesPendientes:
-                resumen.personas.pendientes
-
+            perfilesPendientes: resumen.personas.pendientes,
+            vacantesPorVencer: resumen.vacantes.porVencer,
+            vacantesVencidasActivas:
+                resumen.vacantes.vencidasActivas
         }
-
     };
-
 }
+
 
 module.exports = {
     obtenerResumenReportes,
     obtenerPersonasPorMunicipio,
     obtenerPuestosMasSolicitados,
+    obtenerPuestosConMayorOferta,
     obtenerVacantesPorMunicipio,
     obtenerVacantesPorArea,
     obtenerEmpresasConMasVacantes,
-    obtenerDemandaVsOferta,
     obtenerDashboardReportes
 };
+

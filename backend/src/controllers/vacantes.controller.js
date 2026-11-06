@@ -1,9 +1,7 @@
 const {
     obtenerVacantes,
-    obtenerVacantePorId,
-    actualizarEstadoVacante
+    obtenerVacantePorId
 } = require("../services/vacantes.service");
-
 
 
 async function listarVacantes(req, res) {
@@ -30,7 +28,6 @@ async function listarVacantes(req, res) {
 
     }
 }
-
 
 
 async function obtenerVacante(req, res) {
@@ -130,6 +127,5 @@ async function cambiarEstadoVacante(req, res) {
 
 module.exports = {
     listarVacantes,
-    obtenerVacante,
-    cambiarEstadoVacante
+    obtenerVacante
 };

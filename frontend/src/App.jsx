@@ -11,7 +11,7 @@ import Dashboard from "./pages/Dashboard";
 import Personas from "./pages/Personas";
 import Vacantes from "./pages/Vacantes";
 import Empresas from "./pages/Empresas";
-import Folios from "./pages/Folios";
+import Postulaciones from "./pages/Postulaciones";
 import Reportes from "./pages/Reportes";
 import Configuracion from "./pages/Configuracion";
 
@@ -58,10 +58,12 @@ function App() {
                         element={<Empresas />}
                     />
 
+                    
                     <Route
-                        path="/folios"
-                        element={<Folios />}
+                   path="/postulaciones"
+                    element={<Postulaciones />}
                     />
+
 
                     <Route
                         path="/reportes"

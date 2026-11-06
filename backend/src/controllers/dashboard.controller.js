@@ -4,10 +4,6 @@ const {
 } = require("../services/dashboard.service");
 
 
-// =====================================================
-// OBTENER DATOS DEL DASHBOARD
-// =====================================================
-
 async function obtenerDashboard(req, res) {
 
     try {

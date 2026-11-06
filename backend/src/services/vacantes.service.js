@@ -1,13 +1,12 @@
+
 const db = require("../config/database");
 
-
 async function obtenerVacantes() {
-
     const resultado = await db.query(`
         SELECT
-            id,
+            cve_vacante_sqlserver AS id,
+            cve_vacante_sqlserver,
             folio_oferta,
-            folio_empresa,
             empresa,
             puesto,
             area,
@@ -19,25 +18,21 @@ async function obtenerVacantes() {
             numero_plazas,
             salario,
             fecha_publicacion,
+            vigencia,
             estado
-
-        FROM vacantes
-
-        ORDER BY fecha_publicacion DESC
+        FROM vacantes_externas
+        ORDER BY fecha_publicacion DESC NULLS LAST
     `);
 
     return resultado.rows;
 }
 
-
-
 async function obtenerVacantePorId(id) {
-
     const resultado = await db.query(`
         SELECT
-            id,
+            cve_vacante_sqlserver AS id,
+            cve_vacante_sqlserver,
             folio_oferta,
-            folio_empresa,
             empresa,
             puesto,
             area,
@@ -49,64 +44,17 @@ async function obtenerVacantePorId(id) {
             numero_plazas,
             salario,
             fecha_publicacion,
+            vigencia,
             estado
-
-        FROM vacantes
-
-        WHERE id = $1
-
+        FROM vacantes_externas
+        WHERE cve_vacante_sqlserver = $1
         LIMIT 1
     `, [id]);
 
     return resultado.rows[0] || null;
 }
 
-
-
-async function actualizarEstadoVacante(id, estado) {
-
-    const estadosValidos = [
-        "Activa",
-        "Inactiva",
-        "Cerrada"
-    ];
-
-    if (!estadosValidos.includes(estado)) {
-
-        throw new Error(
-            "Estado de vacante no válido"
-        );
-
-    }
-
-
-    const resultado = await db.query(
-        `
-        UPDATE vacantes
-        SET estado = $1
-        WHERE id = $2
-        RETURNING *
-        `,
-        [
-            estado,
-            id
-        ]
-    );
-
-
-    if (resultado.rows.length === 0) {
-
-        return null;
-
-    }
-
-
-    return resultado.rows[0];
-
-}
-
 module.exports = {
     obtenerVacantes,
-    obtenerVacantePorId,
-    actualizarEstadoVacante
+    obtenerVacantePorId
 };

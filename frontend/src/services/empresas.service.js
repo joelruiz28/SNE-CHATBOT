@@ -1,10 +1,6 @@
 const API_URL = "http://localhost:3000/api/empresas";
 
 
-// =====================================================
-// OBTENER EMPRESAS
-// =====================================================
-
 export async function obtenerEmpresas() {
 
     try {
@@ -37,11 +33,6 @@ export async function obtenerEmpresas() {
     }
 
 }
-
-
-// =====================================================
-// OBTENER DETALLE DE EMPRESA
-// =====================================================
 
 export async function obtenerEmpresaPorNombre(nombre) {
 

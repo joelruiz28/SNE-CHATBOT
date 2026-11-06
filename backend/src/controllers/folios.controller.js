@@ -6,9 +6,7 @@ const {
     obtenerFolioPorId
 } = require("../services/folios.service");
 
-// =====================================================
-// OBTENER DATOS DE FOLIOS
-// =====================================================
+
 
 async function obtenerDatosFolios(req, res) {
 
@@ -49,10 +47,6 @@ async function obtenerDatosFolios(req, res) {
 
 }
 
-
-// =====================================================
-// BUSCAR FOLIO
-// =====================================================
 
 async function buscarFolioController(req, res) {
 
@@ -116,10 +110,6 @@ async function buscarFolioController(req, res) {
 }
 
 
-// =====================================================
-// OBTENER FOLIO POR ID
-// =====================================================
-
 async function obtenerDetalleFolio(req, res) {
 
     try {
@@ -168,9 +158,7 @@ async function obtenerDetalleFolio(req, res) {
     }
 
 }
-// =====================================================
-// RESUMEN DE FOLIOS
-// =====================================================
+
 
 async function obtenerResumenFolios(req, res) {
 
@@ -210,9 +198,6 @@ async function obtenerResumenFolios(req, res) {
 
 }
 
-// =====================================================
-// EXPORTAR
-// =====================================================
 
 module.exports = {
 

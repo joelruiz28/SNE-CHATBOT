@@ -515,20 +515,18 @@
     background: currentColor;
 }
 
-/* ACTIVA */
-.estado-vacante.activa {
-    background: #e5f0ed;
-    color: #315f57;
+
+.estado-vacante.vigente {
+    color: #166534;
+    background: #dcfce7;
 }
 
-/* INACTIVA */
+.estado-vacante.vencida {
+    color: #92400e;
+    background: #fef3c7;
+}
+
 .estado-vacante.inactiva {
-    background: #fff4df;
-    color: #a56a00;
-}
-
-/* CERRADA */
-.estado-vacante.cerrada {
-    background: #f8e5e5;
-    color: #b33a3a;
+    color: #991b1b;
+    background: #fee2e2;
 }

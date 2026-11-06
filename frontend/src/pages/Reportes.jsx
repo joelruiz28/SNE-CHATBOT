@@ -1,972 +1,823 @@
+
 import { useEffect, useState } from "react";
 
 import {
     Users,
     Building2,
-    Briefcase,
-    Zap,
+    BriefcaseBusiness,
     FileText,
     CheckCircle2,
-    Clock,
-    UserMinus,
-    Search,
-    Link2,
-    MapPin,
-    TrendingUp,
-    Minus,
+    Clock3,
     AlertTriangle,
-    Loader2,
+    LoaderCircle,
+    CalendarDays,
+    ChartNoAxesCombined,
+    MapPin,
+    GraduationCap,
+    RefreshCw,
+    UserRoundCheck,
+    UserRoundX,
+    Map,
+    Layers3,
+    ArrowUpRight,
+    ClipboardList,
     CalendarClock,
+    CircleAlert,
 } from "lucide-react";
 
-import {
-    obtenerDashboardReportes
-} from "../services/reportes.service";
-
+import { obtenerDashboardReportes } from "../services/reportes.service";
 import "../styles/reportes.css";
 
+const numero = (valor) =>
+    Number(valor ?? 0).toLocaleString("es-MX");
+
+const fechaActual = new Intl.DateTimeFormat("es-MX", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+}).format(new Date());
+
+function Indicador({
+    icon: Icono,
+    titulo,
+    valor,
+    detalle,
+    variante = "",
+}) {
+    return (
+        <article className={`reporte-indicador ${variante}`}>
+            <div className="reporte-indicador-superior">
+                <div className="reporte-indicador-icono">
+                    <Icono size={21} strokeWidth={1.8} />
+                </div>
+
+                {detalle && (
+                    <span className="reporte-indicador-detalle">
+                        {detalle}
+                    </span>
+                )}
+            </div>
+
+            <div className="reporte-indicador-contenido">
+                <span className="reporte-indicador-titulo">
+                    {titulo}
+                </span>
+
+                <strong className="reporte-indicador-valor">
+                    {numero(valor)}
+                </strong>
+            </div>
+        </article>
+    );
+}
+
+function EstadoVacio({
+    mensaje = "No hay información disponible.",
+}) {
+    return (
+        <div className="reporte-vacio">
+            <div className="reporte-vacio-icono">
+                <ChartNoAxesCombined size={22} strokeWidth={1.6} />
+            </div>
+            <p>{mensaje}</p>
+        </div>
+    );
+}
+
+function EncabezadoSeccion({
+    etiqueta,
+    titulo,
+    descripcion,
+    icon: Icono,
+}) {
+    return (
+        <div className="reporte-seccion-encabezado">
+            <div className="reporte-seccion-titulos">
+                <span className="reporte-etiqueta">
+                    {Icono && <Icono size={14} />}
+                    {etiqueta}
+                </span>
+
+                <h2>{titulo}</h2>
+
+                {descripcion && <p>{descripcion}</p>}
+            </div>
+        </div>
+    );
+}
+
+function BarraDistribucion({ valor, maximo }) {
+    const porcentaje =
+        maximo > 0
+            ? Math.min((Number(valor) / maximo) * 100, 100)
+            : 0;
+
+    return (
+        <div
+            className="reporte-barra"
+            role="progressbar"
+            aria-label="Proporción respecto al valor más alto"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(porcentaje)}
+        >
+            <span style={{ width: `${porcentaje}%` }} />
+        </div>
+    );
+}
+
+function ListaMunicipios({
+    elementos = [],
+    tipo = "personas",
+}) {
+    if (!elementos.length) {
+        return (
+            <EstadoVacio
+                mensaje={
+                    tipo === "personas"
+                        ? "Todavía no hay personas agrupadas por municipio."
+                        : "No hay vacantes activas agrupadas por municipio."
+                }
+            />
+        );
+    }
+
+    const maximo = Math.max(
+        ...elementos.map((item) => Number(item.total ?? 0)),
+        0
+    );
+
+    return (
+        <div className="reporte-distribucion-lista">
+            {elementos.map((item, index) => (
+                <div
+                    className="reporte-distribucion-item"
+                    key={`${item.municipio}-${index}`}
+                >
+                    <div className="reporte-distribucion-principal">
+                        <div className="reporte-distribucion-nombre">
+                            <span className="reporte-punto" />
+                            <span title={item.municipio}>
+                                {item.municipio || "Sin municipio"}
+                            </span>
+                        </div>
+
+                        <strong>{numero(item.total)}</strong>
+                    </div>
+
+                    <BarraDistribucion
+                        valor={item.total}
+                        maximo={maximo}
+                    />
+
+                    {tipo === "vacantes" && (
+                        <span className="reporte-distribucion-subtexto">
+                            {numero(item.plazas)} plazas activas
+                        </span>
+                    )}
+                </div>
+            ))}
+        </div>
+    );
+}
+
+function ListaPuestos({ elementos = [] }) {
+    if (!elementos.length) {
+        return (
+            <EstadoVacio
+                mensaje="No hay puestos activos disponibles para clasificar."
+            />
+        );
+    }
+
+    const maximo = Math.max(
+        ...elementos.map((item) => Number(item.totalVacantes ?? 0)),
+        0
+    );
+
+    return (
+        <div className="reporte-puestos-lista">
+            {elementos.map((item, index) => (
+                <article
+                    className="reporte-puesto-item"
+                    key={`${item.puesto}-${index}`}
+                >
+                    <span
+                        className={`reporte-puesto-ranking ${
+                            index === 0 ? "destacado" : ""
+                        }`}
+                    >
+                        {String(index + 1).padStart(2, "0")}
+                    </span>
+
+                    <div className="reporte-puesto-info">
+                        <div className="reporte-puesto-titulo">
+                            <strong title={item.puesto}>
+                                {item.puesto || "Puesto sin especificar"}
+                            </strong>
+
+                            <span>
+                                {numero(item.totalVacantes)}{" "}
+                                {Number(item.totalVacantes) === 1
+                                    ? "vacante"
+                                    : "vacantes"}
+                            </span>
+                        </div>
+
+                        <BarraDistribucion
+                            valor={item.totalVacantes}
+                            maximo={maximo}
+                        />
+
+                        <small>
+                            {numero(item.plazas)}{" "}
+                            {Number(item.plazas) === 1 ? "plaza" : "plazas"}
+                        </small>
+                    </div>
+                </article>
+            ))}
+        </div>
+    );
+}
+
+function ListaAreas({ elementos = [] }) {
+    if (!elementos.length) {
+        return (
+            <EstadoVacio
+                mensaje="No hay áreas laborales registradas en las vacantes activas."
+            />
+        );
+    }
+
+    const maximo = Math.max(
+        ...elementos.map((item) => Number(item.total ?? 0)),
+        0
+    );
+
+    return (
+        <div className="reporte-areas-lista">
+            {elementos.map((item, index) => (
+                <article
+                    className="reporte-area-item"
+                    key={`${item.area}-${index}`}
+                >
+                    <div className="reporte-area-icono">
+                        <Layers3 size={18} />
+                    </div>
+
+                    <div className="reporte-area-contenido">
+                        <div className="reporte-area-titulo">
+                            <strong title={item.area}>
+                                {item.area || "Área sin especificar"}
+                            </strong>
+
+                            <span>{numero(item.total)}</span>
+                        </div>
+
+                        <BarraDistribucion
+                            valor={item.total}
+                            maximo={maximo}
+                        />
+
+                        <small>{numero(item.plazas)} plazas activas</small>
+                    </div>
+                </article>
+            ))}
+        </div>
+    );
+}
+
+function ListaEmpresas({ elementos = [] }) {
+    if (!elementos.length) {
+        return (
+            <EstadoVacio
+                mensaje="No hay empresas con vacantes activas para mostrar."
+            />
+        );
+    }
+
+    return (
+        <div className="reporte-empresas-lista">
+            {elementos.map((empresa, index) => (
+                <article
+                    className="reporte-empresa-item"
+                    key={`${empresa.empresa}-${index}`}
+                >
+                    <div className="reporte-empresa-identidad">
+                        <span className="reporte-empresa-ranking">
+                            {String(index + 1).padStart(2, "0")}
+                        </span>
+
+                        <div className="reporte-empresa-icono">
+                            <Building2 size={19} />
+                        </div>
+
+                        <div className="reporte-empresa-nombre">
+                            <strong title={empresa.empresa}>
+                                {empresa.empresa || "Empresa sin nombre"}
+                            </strong>
+
+                            <span>
+                                <BriefcaseBusiness size={13} />
+                                {numero(empresa.totalVacantes)}{" "}
+                                {Number(empresa.totalVacantes) === 1
+                                    ? "vacante activa"
+                                    : "vacantes activas"}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div className="reporte-empresa-plazas">
+                        <strong>{numero(empresa.plazas)}</strong>
+                        <span>plazas</span>
+                    </div>
+                </article>
+            ))}
+        </div>
+    );
+}
 
 function Reportes() {
-
     const [datos, setDatos] = useState(null);
-
-    const [cargando, setCargando] =
-        useState(true);
-
-    const [error, setError] =
-        useState(null);
-
-
-    // ==========================================
-    // CARGAR DASHBOARD
-    // ==========================================
+    const [cargando, setCargando] = useState(true);
+    const [error, setError] = useState(null);
+    const [actualizacion, setActualizacion] = useState(0);
 
     useEffect(() => {
+        let activo = true;
 
         async function cargarDashboard() {
-
             try {
-
                 setCargando(true);
+                setError(null);
 
-                const resultado =
-                    await obtenerDashboardReportes();
+                const resultado = await obtenerDashboardReportes();
 
-                console.log(
-                    "📊 DASHBOARD REPORTES:",
-                    resultado
-                );
+                if (activo) {
+                    setDatos(resultado);
+                }
+            } catch (err) {
+                console.error("Error al cargar reportes:", err);
 
-                setDatos(resultado);
-
-            } catch (error) {
-
-                console.error(
-                    "❌ Error dashboard:",
-                    error
-                );
-
-                setError(
-                    error.message ||
-                    "No se pudo cargar el dashboard."
-                );
-
+                if (activo) {
+                    setError(
+                        err.message ||
+                        "No se pudo cargar la información de los reportes."
+                    );
+                }
             } finally {
-
-                setCargando(false);
-
+                if (activo) {
+                    setCargando(false);
+                }
             }
-
         }
 
         cargarDashboard();
 
-    }, []);
+        return () => {
+            activo = false;
+        };
+    }, [actualizacion]);
 
-
-    // ==========================================
-    // CARGANDO
-    // ==========================================
-
-    if (cargando) {
-
+    if (cargando && !datos) {
         return (
-
-            <section className="reportes-page">
-
-                <div className="reportes-loading">
-
-                    <div className="reportes-spinner">
-                        <Loader2 size={40} strokeWidth={2} />
+            <main className="reportes-page">
+                <div className="reportes-estado">
+                    <div className="reportes-estado-icono cargando">
+                        <LoaderCircle size={30} />
                     </div>
 
-                    <h2>
-                        Cargando reportes...
-                    </h2>
+                    <h2>Preparando tus reportes</h2>
 
                     <p>
-                        Estamos preparando la información
-                        del Sistema Nacional de Empleo.
+                        Consultando los registros de personas y la oferta
+                        laboral del SNE Chiapas.
                     </p>
-
                 </div>
-
-            </section>
-
+            </main>
         );
-
     }
 
-
-    // ==========================================
-    // ERROR
-    // ==========================================
-
-    if (error) {
-
+    if (error && !datos) {
         return (
-
-            <section className="reportes-page">
-
-                <div className="reportes-error">
-
-                    <div className="reportes-error-icon">
-                        <AlertTriangle size={22} strokeWidth={2} />
+            <main className="reportes-page">
+                <div className="reportes-estado">
+                    <div className="reportes-estado-icono error">
+                        <AlertTriangle size={27} />
                     </div>
 
-                    <div>
+                    <h2>No se pudieron cargar los reportes</h2>
+                    <p>{error}</p>
 
-                        <h2>
-                            No se pudieron cargar los reportes
-                        </h2>
-
-                        <p>
-                            {error}
-                        </p>
-
-                    </div>
-
+                    <button
+                        type="button"
+                        className="reporte-boton"
+                        onClick={() => setActualizacion((n) => n + 1)}
+                    >
+                        <RefreshCw size={16} />
+                        Intentar nuevamente
+                    </button>
                 </div>
-
-            </section>
-
+            </main>
         );
-
     }
 
+    if (!datos) return null;
 
-    // ==========================================
-    // SEGURIDAD
-    // ==========================================
+    const indicadores = datos.indicadores || {};
 
-    if (!datos) {
-        return null;
-    }
+    const personas = datos.personas || {};
+    const resumenPersonas = personas.resumen || {
+        total: indicadores.personas,
+        completos: indicadores.perfilesCompletos,
+        pendientes: indicadores.perfilesPendientes,
+    };
 
+    const oferta = datos.ofertaLaboral || {};
+    const resumenOferta = oferta.resumen || {};
 
-    const indicadores =
-        datos.indicadores || {};
+    const municipiosPersonas =
+        personas.municipios ??
+        datos.municipios?.personas ??
+        [];
 
-    const vinculacion =
-        datos.vinculacion || {};
+    const municipiosVacantes =
+        oferta.municipios ??
+        datos.municipios?.vacantes ??
+        [];
 
-    const oportunidades =
-        datos.oportunidades || [];
+    const puestos = oferta.puestos ?? datos.puestos ?? [];
+    const areas = oferta.areas ?? datos.areas ?? [];
+    const empresas = oferta.empresas ?? datos.empresas ?? [];
+    const alertas = datos.alertas || {};
 
-    const municipios =
-        datos.municipios || {};
-
-    const puestos =
-        datos.puestos || [];
-
-    const empresas =
-        datos.empresas || [];
-
-    const alertas =
-        datos.alertas || {};
-
-    const fechaActual = new Date().toLocaleDateString(
-        "es-MX",
-        { day: "numeric", month: "long", year: "numeric" }
+    const totalVacantes = Number(
+        indicadores.vacantes ?? resumenOferta.total ?? 0
     );
 
-    // Icono + estilo de badge según la situación de la oportunidad
-    function badgeVisual(oportunidad) {
+    const vacantesActivas = Number(
+        indicadores.vacantesActivas ?? resumenOferta.activas ?? 0
+    );
 
-        const clave = (oportunidad || "")
-            .toLowerCase()
-            .replaceAll(" ", "-");
+    const vacantesInactivas = Number(
+        indicadores.vacantesInactivas ?? resumenOferta.inactivas ?? 0
+    );
 
-        switch (clave) {
+    const plazasActivas = Number(
+        indicadores.plazasActivas ?? resumenOferta.plazasActivas ?? 0
+    );
 
-            case "oferta-disponible":
-                return { icon: <CheckCircle2 />, clave };
+    const totalEmpresas = Number(
+        indicadores.empresas ?? oferta.empresasTotal ?? 0
+    );
 
-            case "sin-vacantes":
-                return { icon: <AlertTriangle />, clave };
+    const perfilesCompletos = Number(
+        indicadores.perfilesCompletos ?? resumenPersonas.completos ?? 0
+    );
 
-            case "alta":
-                return { icon: <TrendingUp />, clave };
+    const perfilesPendientes = Number(
+        indicadores.perfilesPendientes ?? resumenPersonas.pendientes ?? 0
+    );
 
-            case "media":
-                return { icon: <Minus />, clave };
+    const vacantesPorVencer = Number(
+        indicadores.vacantesPorVencer ?? alertas.vacantesPorVencer ?? 0
+    );
 
-            default:
-                return { icon: null, clave };
-
-        }
-
-    }
-
+    const vacantesVencidasActivas = Number(
+        indicadores.vacantesVencidasActivas ??
+        alertas.vacantesVencidasActivas ??
+        0
+    );
 
     return (
+        <main className="reportes-page">
+            <div className="reportes-contenido">
+                {/* CABECERA */}
+               
 
-        <section className="reportes-page">
-
-
-
-
-            {/* ======================================
-                INDICADORES
-            ====================================== */}
-
-            <section className="reportes-indicadores">
-
-
-                <div className="reporte-card">
-
-                    <div className="reporte-icon">
-                        <Users size={20} strokeWidth={1.75} />
-                    </div>
-
-                    <div className="reporte-card-body">
-
+                {error && datos && (
+                    <div className="reportes-aviso-error" role="status">
+                        <AlertTriangle size={17} />
                         <span>
-                            Personas registradas
+                            No se pudo actualizar la información. Se muestran
+                            los últimos datos cargados.
                         </span>
-
-                        <strong>
-                            {indicadores.personas || 0}
-                        </strong>
-
                     </div>
+                )}
 
-                </div>
+                {/* RESUMEN GENERAL */}
+                <section className="reportes-bloque">
+                  
 
+                    <div className="reportes-indicadores-grid">
+                        <Indicador
+                            icon={Users}
+                            titulo="Personas registradas"
+                            valor={indicadores.personas}
+                            detalle="Registro de personas"
+                            variante="personas"
+                        />
 
-                <div className="reporte-card">
+                        <Indicador
+                            icon={Building2}
+                            titulo="Empresas"
+                            valor={totalEmpresas}
+                            detalle="Con oferta registrada"
+                            variante="empresas"
+                        />
 
-                    <div className="reporte-icon">
-                        <Building2 size={20} strokeWidth={1.75} />
+                        <Indicador
+                            icon={BriefcaseBusiness}
+                            titulo="Vacantes activas"
+                            valor={vacantesActivas}
+                            detalle="Estado activo"
+                            variante="vacantes"
+                        />
+
+                        <Indicador
+                            icon={ClipboardList}
+                            titulo="Plazas activas"
+                            valor={plazasActivas}
+                            detalle="Puestos de trabajo disponibles"
+                            variante="plazas"
+                        />
                     </div>
-
-                    <div className="reporte-card-body">
-
-                        <span>
-                            Empresas
-                        </span>
-
-                        <strong>
-                            {indicadores.empresas || 0}
-                        </strong>
-
-                    </div>
-
-                </div>
-
-
-                <div className="reporte-card">
-
-                    <div className="reporte-icon">
-                        <Briefcase size={20} strokeWidth={1.75} />
-                    </div>
-
-                    <div className="reporte-card-body">
-
-                        <span>
-                            Vacantes
-                        </span>
-
-                        <strong>
-                            {indicadores.vacantes || 0}
-                        </strong>
-
-                    </div>
-
-                </div>
-
-
-                <div className="reporte-card">
-
-                    <div className="reporte-icon complete">
-                        <Zap size={20} strokeWidth={1.75} />
-                    </div>
-
-                    <div className="reporte-card-body">
-
-                        <span>
-                            Vacantes activas
-                        </span>
-
-                        <strong>
-                            {indicadores.vacantesActivas || 0}
-                        </strong>
-
-                    </div>
-
-                </div>
-
-
-            </section>
-
-
-            {/* ======================================
-                SEGUNDOS INDICADORES
-            ====================================== */}
-
-            <section className="reportes-indicadores secundarios">
-
-
-                <div className="reporte-card">
-
-                    <div className="reporte-icon">
-                        <FileText size={20} strokeWidth={1.75} />
-                    </div>
-
-                    <div className="reporte-card-body">
-
-                        <span>
-                            Folios generados
-                        </span>
-
-                        <strong>
-                            {indicadores.folios || 0}
-                        </strong>
-
-                    </div>
-
-                </div>
-
-
-                <div className="reporte-card">
-
-                    <div className="reporte-icon complete">
-                        <CheckCircle2 size={20} strokeWidth={1.75} />
-                    </div>
-
-                    <div className="reporte-card-body">
-
-                        <span>
-                            Perfiles completos
-                        </span>
-
-                        <strong>
-                            {indicadores.perfilesCompletos || 0}
-                        </strong>
-
-                    </div>
-
-                </div>
-
-
-                <div className="reporte-card">
-
-                    <div className="reporte-icon pending">
-                        <Clock size={20} strokeWidth={1.75} />
-                    </div>
-
-                    <div className="reporte-card-body">
-
-                        <span>
-                            Perfiles pendientes
-                        </span>
-
-                        <strong>
-                            {indicadores.perfilesPendientes || 0}
-                        </strong>
-
-                    </div>
-
-                </div>
-
-
-            </section>
-
-
-            {/* ======================================
-                VINCULACIÓN
-            ====================================== */}
-
-            <section className="reporte-section">
-
-                <div className="reporte-section-header">
-
-                    <div>
-
-                        <span>
-                            <Link2 size={12} strokeWidth={2.5} />
-                            Vinculación laboral
-                        </span>
-
-                        <h2>
-                            Situación de la vinculación
-                        </h2>
-
-                    </div>
-
-                </div>
-
-
-                <div className="vinculacion-grid">
-
-
-                    <div className="vinculacion-card">
-
-                        <div className="vinculacion-card-top">
-
-                            <span>
-                                Personas sin vacante
-                            </span>
-
-                            <div className="vinculacion-icon">
-                                <UserMinus size={15} strokeWidth={1.75} />
-                            </div>
-
-                        </div>
-
-                        <strong>
-                            {vinculacion.personasSinVacante || 0}
-                        </strong>
-
-                        <p>
-                            Personas que aún no tienen
-                            una oportunidad laboral.
-                        </p>
-
-                    </div>
-
-
-                    <div className="vinculacion-card">
-
-                        <div className="vinculacion-card-top">
-
-                            <span>
-                                Vacantes sin candidatos
-                            </span>
-
-                            <div className="vinculacion-icon">
-                                <Search size={15} strokeWidth={1.75} />
-                            </div>
-
-                        </div>
-
-                        <strong>
-                            {vinculacion.vacantesSinCandidatos || 0}
-                        </strong>
-
-                        <p>
-                            Vacantes que requieren
-                            candidatos.
-                        </p>
-
-                    </div>
-
-
-                    <div className="vinculacion-card">
-
-                        <div className="vinculacion-card-top">
-
-                            <span>
-                                Coincidencias
-                            </span>
-
-                            <div className="vinculacion-icon">
-                                <Link2 size={15} strokeWidth={1.75} />
-                            </div>
-
-                        </div>
-
-                        <strong>
-                            {vinculacion.coincidencias || 0}
-                        </strong>
-
-                        <p>
-                            Coincidencias entre
-                            demanda y oferta laboral.
-                        </p>
-
-                    </div>
-
-
-                </div>
-
-            </section>
-
-
-            {/* ======================================
-                OPORTUNIDADES
-            ====================================== */}
-
-            <section className="reporte-section">
-
-                <div className="reporte-section-header">
-
-                    <div>
-
-                        <span>
-                            <TrendingUp size={12} strokeWidth={2.5} />
-                            Mercado laboral
-                        </span>
-
-                        <h2>
-                            Demanda vs oferta
-                        </h2>
-
-                        <p>
-                            Comparación entre personas
-                            interesadas y vacantes disponibles.
-                        </p>
-
-                    </div>
-
-                </div>
-
-
-                <div className="oportunidades-table-container">
-
-                    <table className="oportunidades-table">
-
-                        <thead>
-
-                            <tr>
-
-                                <th>
-                                    Puesto
-                                </th>
-
-                                <th>
-                                    Personas
-                                </th>
-
-                                <th>
-                                    Vacantes
-                                </th>
-
-                                <th>
-                                    Situación
-                                </th>
-
-                            </tr>
-
-                        </thead>
-
-
-                        <tbody>
-
-                            {oportunidades.map(
-                                (item, index) => {
-
-                                    const { icon, clave } =
-                                        badgeVisual(item.oportunidad);
-
-                                    return (
-
-                                        <tr key={index}>
-
-                                            <td>
-                                                <strong>
-                                                    {item.puesto}
-                                                </strong>
-                                            </td>
-
-                                            <td>
-                                                {item.personas}
-                                            </td>
-
-                                            <td>
-                                                {item.vacantes}
-                                            </td>
-
-                                            <td>
-
-                                                <span
-                                                    className={`oportunidad-badge ${clave}`}
-                                                >
-
-                                                    {icon}
-                                                    {item.oportunidad}
-
-                                                </span>
-
-                                            </td>
-
-                                        </tr>
-
-                                    );
-
-                                }
-                            )}
-
-                        </tbody>
-
-                    </table>
-
-                </div>
-
-            </section>
-
-
-            {/* ======================================
-                MUNICIPIOS
-            ====================================== */}
-
-            <section className="reportes-doble">
-
-
-                <div className="reporte-panel">
-
-                    <div className="reporte-panel-header">
-
+                </section>
+
+                {/* REGISTRO DE PERSONAS */}
+                <section className="reportes-bloque">
+                    <div className="reportes-bloque-encabezado">
                         <div>
-
-                            <span>
-                                Personas
+                            <span className="reportes-seccion-kicker">
+                                REGISTRO
                             </span>
-
-                            <h2>
-                                Personas por municipio
-                            </h2>
-
+                            <h2>Personas registradas</h2>
+                            <p>
+                                Seguimiento de perfiles, folios y distribución
+                                geográfica de los registros.
+                            </p>
                         </div>
-
-                        <div className="reporte-panel-icon">
-                            <MapPin size={17} strokeWidth={1.75} />
-                        </div>
-
                     </div>
 
+                    <div className="reportes-indicadores-grid reportes-indicadores-personas">
+                        <Indicador
+                            icon={FileText}
+                            titulo="Folios generados"
+                            valor={indicadores.folios}
+                            variante="neutral"
+                        />
 
-                    <div className="reporte-list">
+                        <Indicador
+                            icon={UserRoundCheck}
+                            titulo="Perfiles completos"
+                            valor={perfilesCompletos}
+                            variante="positivo"
+                        />
 
-                        {municipios.personas?.map(
-                            (item, index) => (
+                        <Indicador
+                            icon={UserRoundX}
+                            titulo="Perfiles pendientes"
+                            valor={perfilesPendientes}
+                            variante="pendiente"
+                        />
+                    </div>
 
-                                <div
-                                    className="reporte-list-item"
-                                    key={index}
-                                >
-
-                                    <span>
-                                        {item.municipio}
-                                    </span>
-
-                                    <strong>
-                                        {item.total}
-                                    </strong>
-
+                    <div className="reporte-panel">
+                        <div className="reporte-panel-encabezado">
+                            <div className="reporte-panel-titulo-icono">
+                                <div className="reporte-panel-icono">
+                                    <MapPin size={18} />
                                 </div>
-
-                            )
-                        )}
-
-                    </div>
-
-                </div>
-
-
-                <div className="reporte-panel">
-
-                    <div className="reporte-panel-header">
-
-                        <div>
-
-                            <span>
-                                Vacantes
-                            </span>
-
-                            <h2>
-                                Vacantes por municipio
-                            </h2>
-
-                        </div>
-
-                        <div className="reporte-panel-icon">
-                            <Briefcase size={17} strokeWidth={1.75} />
-                        </div>
-
-                    </div>
-
-
-                    <div className="reporte-list">
-
-                        {municipios.vacantes?.map(
-                            (item, index) => (
-
-                                <div
-                                    className="reporte-list-item"
-                                    key={index}
-                                >
-
-                                    <span>
-                                        {item.municipio}
-                                    </span>
-
-                                    <strong>
-                                        {item.total}
-                                    </strong>
-
-                                </div>
-
-                            )
-                        )}
-
-                    </div>
-
-                </div>
-
-
-            </section>
-
-
-            {/* ======================================
-                PUESTOS
-            ====================================== */}
-
-            <section className="reporte-section">
-
-                <div className="reporte-section-header">
-
-                    <div>
-
-                        <span>
-                            <Briefcase size={12} strokeWidth={2.5} />
-                            Demanda laboral
-                        </span>
-
-                        <h2>
-                            Puestos más solicitados
-                        </h2>
-
-                    </div>
-
-                </div>
-
-
-                <div className="reporte-list puestos">
-
-                    {puestos.map(
-                        (item, index) => (
-
-                            <div
-                                className="puesto-item"
-                                key={index}
-                            >
 
                                 <div>
-
-                                    <span
-                                        className={`puesto-rank ${
-                                            index === 0 ? "top" : ""
-                                        }`}
-                                    >
-                                        {index + 1}
-                                    </span>
-
-                                    <strong>
-                                        {item.puesto}
-                                    </strong>
-
+                                    <h3>Personas por municipio</h3>
+                                    <p>
+                                        Distribución de las personas registradas.
+                                    </p>
                                 </div>
-
-                                <span className="puesto-total">
-                                    {item.total}
-                                </span>
-
                             </div>
 
-                        )
-                    )}
+                            <span className="reporte-panel-total">
+                                {numero(municipiosPersonas.length)} municipios
+                            </span>
+                        </div>
 
-                </div>
+                        <ListaMunicipios
+                            elementos={municipiosPersonas}
+                            tipo="personas"
+                        />
+                    </div>
+                </section>
 
-            </section>
-
-
-            {/* ======================================
-                EMPRESAS
-            ====================================== */}
-
-            <section className="reporte-section">
-
-                <div className="reporte-section-header">
-
-                    <div>
-
-                        <span>
-                            <Building2 size={12} strokeWidth={2.5} />
-                            Oferta laboral
-                        </span>
-
-                        <h2>
-                            Empresas con más vacantes
-                        </h2>
-
+                {/* OFERTA LABORAL */}
+                <section className="reportes-bloque">
+                    <div className="reportes-bloque-encabezado">
+                        <div>
+                            <span className="reportes-seccion-kicker">
+                                MERCADO LABORAL
+                            </span>
+                            <h2>Oferta laboral</h2>
+                            <p>
+                                Análisis de vacantes sincronizadas desde SQL
+                                Server y almacenadas en el sistema.
+                            </p>
+                        </div>
                     </div>
 
-                </div>
+                    <div className="reportes-indicadores-grid reportes-indicadores-oferta">
+                        <Indicador
+                            icon={BriefcaseBusiness}
+                            titulo="Total de vacantes"
+                            valor={totalVacantes}
+                            detalle="Activas e inactivas"
+                            variante="neutral"
+                        />
 
+                        <Indicador
+                            icon={CheckCircle2}
+                            titulo="Vacantes activas"
+                            valor={vacantesActivas}
+                            detalle="Estado = 1"
+                            variante="positivo"
+                        />
 
-                <div className="empresas-grid">
+                        <Indicador
+                            icon={Clock3}
+                            titulo="Vacantes inactivas"
+                            valor={vacantesInactivas}
+                            detalle="Estado = 0"
+                            variante="pendiente"
+                        />
 
-                    {empresas.map(
-                        (empresa, index) => (
+                        <Indicador
+                            icon={ClipboardList}
+                            titulo="Plazas totales"
+                            valor={
+                                indicadores.totalPlazas ??
+                                resumenOferta.plazas ??
+                                0
+                            }
+                            detalle="Todas las vacantes"
+                            variante="neutral"
+                        />
+                    </div>
 
-                            <div
-                                className="empresa-card"
-                                key={index}
-                            >
+                    <div className="reportes-dos-columnas">
+                        <div className="reporte-panel">
+                            <div className="reporte-panel-encabezado">
+                                <div className="reporte-panel-titulo-icono">
+                                    <div className="reporte-panel-icono">
+                                        <MapPin size={18} />
+                                    </div>
 
-                                <div className="empresa-number">
-                                    {index + 1}
+                                    <div>
+                                        <h3>Vacantes por municipio</h3>
+                                        <p>
+                                            Vacantes activas y sus plazas.
+                                        </p>
+                                    </div>
                                 </div>
-
-                                <div className="empresa-info">
-
-                                    <strong>
-                                        {empresa.empresa}
-                                    </strong>
-
-                                    <span>
-                                        <Briefcase size={11} strokeWidth={2} />
-                                        {empresa.totalVacantes}
-                                        {" "}
-                                        vacantes
-                                    </span>
-
-                                </div>
-
-                                <div className="empresa-plazas">
-
-                                    <strong>
-                                        {empresa.plazas}
-                                    </strong>
-
-                                    <span>
-                                        plazas
-                                    </span>
-
-                                </div>
-
                             </div>
 
-                        )
-                    )}
-
-                </div>
-
-            </section>
-
-
-            {/* ======================================
-                ALERTAS
-            ====================================== */}
-
-            <section className="reporte-section">
-
-                <div className="reporte-section-header">
-
-                    <div>
-
-                        <span>
-                            <AlertTriangle size={12} strokeWidth={2.5} />
-                            Atención
-                        </span>
-
-                        <h2>
-                            Alertas del sistema
-                        </h2>
-
-                    </div>
-
-                </div>
-
-
-                <div className="alertas-grid">
-
-
-                    <div className="alerta-card">
-
-                        <div className="alerta-icon">
-                            <UserMinus size={19} strokeWidth={1.75} />
+                            <ListaMunicipios
+                                elementos={municipiosVacantes}
+                                tipo="vacantes"
+                            />
                         </div>
 
+                        <div className="reporte-panel">
+                            <div className="reporte-panel-encabezado">
+                                <div className="reporte-panel-titulo-icono">
+                                    <div className="reporte-panel-icono">
+                                        <GraduationCap size={18} />
+                                    </div>
+
+                                    <div>
+                                        <h3>Vacantes por área</h3>
+                                        <p>
+                                            Distribución de la oferta laboral.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <ListaAreas elementos={areas} />
+                        </div>
+                    </div>
+
+                    <div className="reportes-dos-columnas">
+                        <div className="reporte-panel">
+                            <div className="reporte-panel-encabezado">
+                                <div className="reporte-panel-titulo-icono">
+                                    <div className="reporte-panel-icono">
+                                        <BriefcaseBusiness size={18} />
+                                    </div>
+
+                                    <div>
+                                        <h3>Puestos con mayor oferta</h3>
+                                        <p>
+                                            Principales puestos según vacantes
+                                            activas.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <ListaPuestos elementos={puestos} />
+                        </div>
+
+                        <div className="reporte-panel">
+                            <div className="reporte-panel-encabezado">
+                                <div className="reporte-panel-titulo-icono">
+                                    <div className="reporte-panel-icono">
+                                        <Building2 size={18} />
+                                    </div>
+
+                                    <div>
+                                        <h3>Empresas con más vacantes</h3>
+                                        <p>
+                                            Empresas ordenadas por su oferta
+                                            activa.
+                                        </p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <ListaEmpresas elementos={empresas} />
+                        </div>
+                    </div>
+                </section>
+
+                {/* SEGUIMIENTO */}
+                <section className="reportes-bloque">
+                    <div className="reportes-bloque-encabezado">
                         <div>
-
-                            <strong>
-                                {alertas.personasSinVacante || 0}
-                            </strong>
-
+                            <span className="reportes-seccion-kicker">
+                                SEGUIMIENTO
+                            </span>
+                            <h2>Alertas y vigencias</h2>
                             <p>
-                                Personas sin vacante
+                                Registros que conviene revisar desde la
+                                administración del sistema.
                             </p>
-
                         </div>
-
                     </div>
 
+                    <div className="reportes-alertas-grid">
+                        <article className="reporte-alerta-card">
+                            <div className="reporte-alerta-icono pendientes">
+                                <UserRoundX size={20} />
+                            </div>
 
-                    <div className="alerta-card">
+                            <div className="reporte-alerta-contenido">
+                                <span>Perfiles pendientes</span>
+                                <strong>{numero(perfilesPendientes)}</strong>
+                                <p>
+                                    Personas cuyo perfil requiere completar
+                                    información.
+                                </p>
+                            </div>
+                        </article>
 
-                        <div className="alerta-icon">
-                            <Search size={19} strokeWidth={1.75} />
-                        </div>
+                        <article className="reporte-alerta-card">
+                            <div className="reporte-alerta-icono por-vencer">
+                                <CalendarClock size={20} />
+                            </div>
 
-                        <div>
+                            <div className="reporte-alerta-contenido">
+                                <span>Vacantes por vencer</span>
+                                <strong>{numero(vacantesPorVencer)}</strong>
+                                <p>
+                                    Vacantes activas con vigencia dentro de los
+                                    próximos 30 días.
+                                </p>
+                            </div>
+                        </article>
 
-                            <strong>
-                                {alertas.vacantesSinCandidatos || 0}
-                            </strong>
+                        <article className="reporte-alerta-card">
+                            <div className="reporte-alerta-icono vencidas">
+                                <CircleAlert size={20} />
+                            </div>
 
-                            <p>
-                                Vacantes sin candidatos
-                            </p>
-
-                        </div>
-
+                            <div className="reporte-alerta-contenido">
+                                <span>Vigencia vencida</span>
+                                <strong>
+                                    {numero(vacantesVencidasActivas)}
+                                </strong>
+                                <p>
+                                    Vacantes que siguen activas aunque su fecha
+                                    de vigencia ya pasó.
+                                </p>
+                            </div>
+                        </article>
                     </div>
+                </section>
 
-
-                    <div className="alerta-card">
-
-                        <div className="alerta-icon">
-                            <Clock size={19} strokeWidth={1.75} />
-                        </div>
-
-                        <div>
-
-                            <strong>
-                                {alertas.perfilesPendientes || 0}
-                            </strong>
-
-                            <p>
-                                Perfiles pendientes
-                            </p>
-
-                        </div>
-
-                    </div>
-
-
-                </div>
-
-            </section>
-
-
-        </section>
-
+                
+            </div>
+        </main>
     );
-
 }
 
-
 export default Reportes;
+

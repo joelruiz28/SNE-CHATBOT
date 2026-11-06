@@ -4,10 +4,6 @@ const {
 } = require("../services/personas.service");
 
 
-// =====================================================
-// OBTENER PERSONAS
-// =====================================================
-
 async function listarPersonas(req, res) {
 
     try {
@@ -33,10 +29,6 @@ async function listarPersonas(req, res) {
     }
 }
 
-
-// =====================================================
-// OBTENER PERSONA POR ID
-// =====================================================
 
 async function obtenerPersona(req, res) {
 

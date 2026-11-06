@@ -1,5 +1,10 @@
 const db = require("../config/database");
 
+const {
+    buscarSolicitanteSQLServerPorCURP
+} = require("../repositories/solicitantes.repository");
+
+
 async function crearBuscador(telefono) {
 
     const existe = await db.query(
@@ -84,6 +89,52 @@ async function buscarPorCURP(curp) {
     );
 
     return resultado.rows[0] || null;
+}
+
+/**
+ * Busca un solicitante primero en PostgreSQL y,
+ * si no existe, consulta la base oficial de SQL Server.
+ *
+ * Esta función únicamente consulta datos.
+ */
+async function buscarSolicitantePorCURPEnAmbasBases(curp) {
+    const curpNormalizada = String(curp || "")
+        .trim()
+        .toUpperCase();
+
+    if (!curpNormalizada) {
+        return {
+            origen: null,
+            solicitante: null
+        };
+    }
+
+    // 1. Consultar primero PostgreSQL.
+    const buscadorPostgres = await buscarPorCURP(curpNormalizada);
+
+    if (buscadorPostgres) {
+        return {
+            origen: "postgresql",
+            solicitante: buscadorPostgres
+        };
+    }
+
+    // 2. Si no existe en PostgreSQL, consultar SQL Server.
+    const solicitanteSQLServer =
+        await buscarSolicitanteSQLServerPorCURP(curpNormalizada);
+
+    if (solicitanteSQLServer) {
+        return {
+            origen: "sqlserver",
+            solicitante: solicitanteSQLServer
+        };
+    }
+
+    // 3. No existe en ninguna de las dos bases.
+    return {
+        origen: null,
+        solicitante: null
+    };
 }
 
 
@@ -690,6 +741,171 @@ async function crearBuscadorCompleto(
 
 
 
+async function importarBuscadorHistorico(datos, telefono) {
+    const cliente = await db.connect();
+
+    try {
+        await cliente.query("BEGIN");
+
+        const curp = String(datos.curp || "")
+            .trim()
+            .toUpperCase();
+
+        const telefonoNormalizado = String(telefono || "")
+            .replace(/\D/g, "");
+
+        if (!curp) {
+            throw new Error("La CURP es obligatoria para importar el registro.");
+        }
+
+        if (!telefonoNormalizado) {
+            throw new Error("El teléfono es obligatorio para importar el registro.");
+        }
+
+        // Serializar importaciones para evitar conflictos concurrentes
+        // entre procesos que intenten recuperar registros simultáneamente.
+        await cliente.query(
+            "SELECT pg_advisory_xact_lock(hashtext($1))",
+            [`importar-buscador:${curp}`]
+        );
+
+        // Comprobar si la CURP ya existe.
+        const existente = await cliente.query(
+            `
+            SELECT *
+            FROM buscadores_empleo
+            WHERE UPPER(TRIM(curp)) = $1
+            LIMIT 1
+            FOR UPDATE
+            `,
+            [curp]
+        );
+
+        if (existente.rows.length > 0) {
+            const buscador = existente.rows[0];
+            const telefonoExistente = String(buscador.telefono || "")
+                .replace(/\D/g, "");
+
+            // No devolver un registro asociado a otro teléfono.
+            if (
+                !telefonoExistente ||
+                telefonoExistente.slice(-10) !==
+                    telefonoNormalizado.slice(-10)
+            ) {
+                throw new Error(
+                    "La CURP ya está asociada a otro teléfono en PostgreSQL."
+                );
+            }
+
+            await cliente.query("COMMIT");
+            return buscador;
+        }
+
+        // Comprobar que el teléfono no pertenezca a otra CURP.
+        const telefonoExistente = await cliente.query(
+            `
+            SELECT id, curp
+            FROM buscadores_empleo
+            WHERE telefono = $1
+            LIMIT 1
+            `,
+            [telefonoNormalizado]
+        );
+
+        if (telefonoExistente.rows.length > 0) {
+            throw new Error(
+                "El teléfono ya está asociado a otro usuario en PostgreSQL."
+            );
+        }
+
+        const nombre = String(datos.nombre_completo || "").trim();
+        const correo = String(datos.correo || "").trim() || null;
+        const codigoPostal = String(datos.codigo_postal || "").trim() || null;
+        const fechaNacimiento = datos.fecha_nacimiento || null;
+        const sexo = datos.sexo || null;
+
+        const perfilCompleto = Boolean(
+            nombre &&
+            curp &&
+            fechaNacimiento &&
+            sexo &&
+            telefonoNormalizado &&
+            correo &&
+            codigoPostal
+        );
+
+        const resultado = await cliente.query(
+            `
+            INSERT INTO buscadores_empleo (
+                telefono,
+                curp,
+                nombre_completo,
+                fecha_nacimiento,
+                sexo,
+                correo,
+                codigo_postal,
+                perfil_completo,
+                fecha_registro
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)
+            RETURNING *
+            `,
+            [
+                telefonoNormalizado,
+                curp,
+                nombre || null,
+                fechaNacimiento,
+                sexo,
+                correo,
+                codigoPostal,
+                perfilCompleto
+            ]
+        );
+
+        let buscador = resultado.rows[0];
+
+        // Conservar el folio interno del chatbot.
+        // No utilizar el folio histórico de SQL Server.
+        if (perfilCompleto) {
+            const anio = new Date().getFullYear();
+            const consecutivo = String(buscador.id).padStart(6, "0");
+            const folio = `SNE-${anio}-${consecutivo}`;
+
+            const resultadoFolio = await cliente.query(
+                `
+                UPDATE buscadores_empleo
+                SET folio = $1
+                WHERE id = $2
+                RETURNING *
+                `,
+                [folio, buscador.id]
+            );
+
+            buscador = resultadoFolio.rows[0];
+        }
+
+        await cliente.query("COMMIT");
+        return buscador;
+
+    } catch (error) {
+        await cliente.query("ROLLBACK");
+
+        console.error(
+            "Error al importar el registro histórico:",
+            error.message
+        );
+
+        throw error;
+
+    } finally {
+        cliente.release();
+    }
+}
+
+
+
+
+
 async function actualizarBuscadorCompletoPorId(id, datos) {
     const cliente = await db.connect();
 
@@ -961,5 +1177,11 @@ module.exports = {
 
     actualizarCampoPerfilPorId,
 
+    buscarSolicitantePorCURPEnAmbasBases,
+
+    importarBuscadorHistorico,
+
     actualizarDatoPorId
+
+
 };

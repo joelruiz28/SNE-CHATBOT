@@ -1,0 +1,573 @@
+
+/* ---------- Página principal ---------- */
+
+.postulaciones-page {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* ---------- Encabezado ---------- */
+
+.postulaciones-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+}
+
+.postulaciones-header h1 {
+    margin: 0;
+    font-size: 28px;
+    color: #315f57;
+}
+
+.postulaciones-header p {
+    margin: 6px 0 0;
+    font-size: 14px;
+    color: #89938f;
+}
+
+/* ---------- Tarjetas de resumen ---------- */
+
+.postulaciones-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-top: 20px;
+}
+
+.postulaciones-card {
+    position: relative;
+    flex: 1 1 220px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 20px 22px;
+    background: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
+    overflow: hidden;
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.postulaciones-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: #dfe6e3;
+}
+
+.postulaciones-card--total::before {
+    background: linear-gradient(90deg, #64746f, #a4b2ac);
+}
+
+.postulaciones-card--activa::before {
+    background: linear-gradient(90deg, #315f57, #58a394);
+}
+
+.postulaciones-card--cancelada::before {
+    background: linear-gradient(90deg, #c45d5d, #ed9a9a);
+}
+
+.postulaciones-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 24px rgba(0, 0, 0, 0.08);
+}
+
+.postulaciones-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.postulaciones-card-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 46px;
+    height: 46px;
+    border-radius: 13px;
+    font-size: 21px;
+}
+
+.postulaciones-card-icon--total {
+    background: #eef2f4;
+    color: #64746f;
+}
+
+.postulaciones-card-icon--activa {
+    background: #e5f0ed;
+    color: #315f57;
+}
+
+.postulaciones-card-icon--cancelada {
+    background: #fff0f0;
+    color: #b94b4b;
+}
+
+.postulaciones-card strong {
+    font-size: 30px;
+    line-height: 1.1;
+    color: #24443e;
+    letter-spacing: -0.02em;
+}
+
+.postulaciones-card-label {
+    margin: 8px 0;
+    font-size: 13px;
+    color: #89938f;
+}
+
+.postulaciones-card-badge {
+    font-size: 12px;
+    font-weight: 700;
+    padding: 4px 10px;
+    border-radius: 20px;
+}
+
+.postulaciones-card-badge--activa {
+    background: #e5f0ed;
+    color: #315f57;
+}
+
+.postulaciones-card-badge--cancelada {
+    background: #fff0f0;
+    color: #b94b4b;
+}
+
+/* ---------- Panel del listado ---------- */
+
+.postulaciones-listado {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    padding: 22px;
+    background: #ffffff;
+    border-radius: 16px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.04);
+}
+
+.postulaciones-listado-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.postulaciones-listado-header h2 {
+    margin: 0;
+    color: #315f57;
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.postulaciones-listado-header p {
+    margin: 5px 0 0;
+    font-size: 13px;
+    color: #89938f;
+}
+
+/* ---------- Búsqueda y filtros ---------- */
+
+.postulaciones-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.postulaciones-search {
+    flex: 1 1 280px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 11px 16px;
+    background: #f8faf9;
+    border: 1px solid #e5ece9;
+    border-radius: 12px;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease;
+}
+
+.postulaciones-search:focus-within {
+    border-color: #58a394;
+    box-shadow: 0 0 0 3px rgba(88, 163, 148, 0.12);
+}
+
+.postulaciones-search-icon {
+    font-size: 15px;
+    opacity: 0.65;
+}
+
+.postulaciones-search input {
+    width: 100%;
+    min-width: 0;
+    border: none;
+    outline: none;
+    font-size: 14px;
+    color: #315f57;
+    background: transparent;
+}
+
+.postulaciones-search input::placeholder {
+    color: #a4b2ac;
+}
+
+.postulaciones-filtros {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.postulaciones-filtro-btn {
+    padding: 9px 15px;
+    border: 1px solid #e5ece9;
+    border-radius: 20px;
+    background: #ffffff;
+    color: #64746f;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease,
+        border-color 0.15s ease;
+}
+
+.postulaciones-filtro-btn:hover {
+    background: #f0f5f3;
+    border-color: #cbdcd5;
+}
+
+.postulaciones-filtro-btn.activo {
+    background: #315f57;
+    border-color: #315f57;
+    color: #ffffff;
+}
+
+/* ---------- Contador de resultados ---------- */
+
+.postulaciones-resultados {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    color: #89938f;
+    font-size: 12px;
+}
+
+.postulaciones-resultados strong {
+    color: #315f57;
+}
+
+/* ---------- Tabla ---------- */
+
+.postulaciones-table-container {
+    width: 100%;
+    overflow-x: auto;
+    border: 1px solid #edf1ef;
+    border-radius: 12px;
+}
+
+.postulaciones-table {
+    width: 100%;
+    min-width: 850px;
+    border-collapse: collapse;
+}
+
+.postulaciones-table th {
+    position: sticky;
+    top: 0;
+    padding: 15px 16px;
+    text-align: left;
+    white-space: nowrap;
+    font-size: 12px;
+    font-weight: 700;
+    color: #64746f;
+    background: #f5f8f7;
+    border-bottom: 1px solid #e5ece9;
+}
+
+.postulaciones-table td {
+    padding: 15px 16px;
+    font-size: 13px;
+    color: #596761;
+    border-bottom: 1px solid #edf1ef;
+    vertical-align: middle;
+}
+
+.postulaciones-table tbody tr {
+    transition: background 0.12s ease;
+}
+
+.postulaciones-table tbody tr:hover {
+    background: #f8faf9;
+}
+
+.postulaciones-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.postulaciones-table td strong {
+    color: #315f57;
+    font-weight: 600;
+}
+
+.postulaciones-persona {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 190px;
+}
+
+.postulaciones-avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #3f7c70, #315f57);
+    color: #ffffff;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.postulaciones-persona-info {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.postulaciones-persona-info strong {
+    color: #315f57;
+    font-size: 13px;
+}
+
+.postulaciones-persona-info span {
+    color: #a0aaa5;
+    font-size: 11px;
+}
+
+.postulaciones-vacante {
+    min-width: 200px;
+}
+
+.postulaciones-vacante strong {
+    display: block;
+    line-height: 1.5;
+}
+
+.postulaciones-empresa {
+    min-width: 180px;
+    max-width: 260px;
+    line-height: 1.5;
+}
+
+/* ---------- Etiquetas de estado ---------- */
+
+.postulaciones-estado {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    white-space: nowrap;
+}
+
+.postulaciones-estado::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.postulaciones-estado--postulada {
+    background: #eaf2ff;
+    color: #3766a5;
+}
+
+.postulaciones-estado--revision {
+    background: #fff4df;
+    color: #a56a00;
+}
+
+.postulaciones-estado--aceptada {
+    background: #e5f0ed;
+    color: #26734e;
+}
+
+.postulaciones-estado--rechazada {
+    background: #fff0f0;
+    color: #b33a3a;
+}
+
+.postulaciones-estado--cancelada {
+    background: #f0f1f1;
+    color: #747e79;
+}
+
+/* ---------- Fecha ---------- */
+
+.postulaciones-fecha {
+    white-space: nowrap;
+    color: #64746f;
+    font-size: 12px;
+}
+
+/* ---------- Carga, error y estado vacío ---------- */
+
+.postulaciones-loading {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 20px;
+}
+
+.postulaciones-skeleton-row {
+    height: 45px;
+    border-radius: 8px;
+    background: linear-gradient(
+        90deg,
+        #f0f3f2 25%,
+        #f8faf9 37%,
+        #f0f3f2 63%
+    );
+    background-size: 400% 100%;
+    animation: postulaciones-shimmer 1.4s ease infinite;
+}
+
+@keyframes postulaciones-shimmer {
+    0% {
+        background-position: 100% 50%;
+    }
+
+    100% {
+        background-position: 0 50%;
+    }
+}
+
+.postulaciones-error {
+    padding: 20px;
+    background: #fff0f0;
+    border: 1px solid #f4d4d4;
+    border-radius: 12px;
+    color: #b33a3a;
+    font-size: 14px;
+}
+
+.postulaciones-error button {
+    margin-top: 12px;
+    padding: 9px 15px;
+    border: none;
+    border-radius: 8px;
+    background: #b33a3a;
+    color: #ffffff;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.postulaciones-error button:hover {
+    background: #982d2d;
+}
+
+.postulaciones-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 55px 20px;
+    color: #89938f;
+    text-align: center;
+    font-size: 14px;
+}
+
+.postulaciones-empty-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 60px;
+    height: 60px;
+    border-radius: 18px;
+    background: #eaf2ee;
+    color: #315f57;
+    font-size: 26px;
+}
+
+.postulaciones-empty strong {
+    color: #315f57;
+    font-size: 15px;
+}
+
+/* ---------- Responsive ---------- */
+
+@media (max-width: 900px) {
+    .postulaciones-listado {
+        padding: 16px;
+    }
+
+    .postulaciones-toolbar {
+        align-items: stretch;
+    }
+
+    .postulaciones-filtros {
+        width: 100%;
+    }
+}
+
+@media (max-width: 720px) {
+    .postulaciones-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .postulaciones-header h1 {
+        font-size: 24px;
+    }
+
+    .postulaciones-summary {
+        margin-top: 10px;
+    }
+
+    .postulaciones-card {
+        flex-basis: 100%;
+    }
+
+    .postulaciones-listado-header {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .postulaciones-filtros {
+        gap: 7px;
+    }
+
+    .postulaciones-filtro-btn {
+        flex: 1 1 auto;
+    }
+
+    .postulaciones-resultados {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .postulaciones-card,
+    .postulaciones-table tbody tr,
+    .postulaciones-filtro-btn {
+        transition: none;
+    }
+
+    .postulaciones-skeleton-row {
+        animation: none;
+    }
+}

@@ -57,6 +57,14 @@ function Header() {
             icono: <FileText size={19} strokeWidth={1.75} />
         },
 
+
+        "/postulaciones": {
+            titulo: "Postulaciones",
+            descripcion:
+                "Consulta las postulaciones de los buscadores de empleo a las vacantes registradas.",
+            icono: <BarChart3 size={19} strokeWidth={1.75} />
+        },
+
         "/reportes": {
             titulo: "Reportes",
             descripcion:

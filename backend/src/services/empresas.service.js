@@ -1,42 +1,42 @@
 const db = require("../config/database");
 
-
-
 async function obtenerEmpresas() {
-
     const resultado = await db.query(`
         SELECT
             empresa,
             COUNT(*) AS total_vacantes,
+
             COUNT(*) FILTER (
-                WHERE COALESCE(LOWER(estado), 'activa') = 'activa'
+                WHERE estado = 1
             ) AS vacantes_activas,
+
             COUNT(*) FILTER (
-                WHERE COALESCE(LOWER(estado), 'activa') = 'inactiva'
+                WHERE estado = 0
             ) AS vacantes_inactivas
 
-        FROM vacantes
+        FROM vacantes_externas
 
         WHERE empresa IS NOT NULL
-        AND TRIM(empresa) <> ''
+          AND TRIM(empresa) <> ''
 
         GROUP BY empresa
-
         ORDER BY empresa ASC
     `);
 
-    return resultado.rows;
+    return resultado.rows.map((empresa) => ({
+        ...empresa,
+        total_vacantes: Number(empresa.total_vacantes),
+        vacantes_activas: Number(empresa.vacantes_activas),
+        vacantes_inactivas: Number(empresa.vacantes_inactivas)
+    }));
 }
 
-
-
 async function obtenerEmpresaPorNombre(nombre) {
-
     const resultado = await db.query(`
         SELECT
-            id,
+            cve_vacante_sqlserver AS id,
+            cve_vacante_sqlserver,
             folio_oferta,
-            folio_empresa,
             empresa,
             puesto,
             area,
@@ -48,60 +48,44 @@ async function obtenerEmpresaPorNombre(nombre) {
             numero_plazas,
             salario,
             fecha_publicacion,
+            vigencia,
             estado
 
-        FROM vacantes
+        FROM vacantes_externas
 
-        WHERE LOWER(TRIM(empresa))
-            = LOWER(TRIM($1))
+        WHERE LOWER(TRIM(empresa)) = LOWER(TRIM($1))
 
-        ORDER BY fecha_publicacion DESC
+        ORDER BY fecha_publicacion DESC NULLS LAST
     `, [nombre]);
 
     return resultado.rows;
 }
 
-
 async function obtenerEstadisticasEmpresas() {
+    const resultado = await db.query(`
+        SELECT
+            COUNT(DISTINCT empresa) FILTER (
+                WHERE empresa IS NOT NULL
+                  AND TRIM(empresa) <> ''
+            ) AS total_empresas,
 
-    const empresas = await db.query(`
-        SELECT COUNT(DISTINCT empresa) AS total
-        FROM vacantes
+            COUNT(*) AS total_vacantes,
 
-        WHERE empresa IS NOT NULL
-        AND TRIM(empresa) <> ''
+            COUNT(*) FILTER (
+                WHERE estado = 1
+            ) AS vacantes_activas
+
+        FROM vacantes_externas
     `);
 
-
-    const vacantes = await db.query(`
-        SELECT COUNT(*) AS total
-        FROM vacantes
-    `);
-
-
-    const activas = await db.query(`
-        SELECT COUNT(*) AS total
-        FROM vacantes
-
-        WHERE COALESCE(LOWER(estado), 'activa') = 'activa'
-    `);
-
+    const estadisticas = resultado.rows[0];
 
     return {
-
-        totalEmpresas:
-            Number(empresas.rows[0].total),
-
-        totalVacantes:
-            Number(vacantes.rows[0].total),
-
-        vacantesActivas:
-            Number(activas.rows[0].total)
-
+        totalEmpresas: Number(estadisticas.total_empresas),
+        totalVacantes: Number(estadisticas.total_vacantes),
+        vacantesActivas: Number(estadisticas.vacantes_activas)
     };
-
 }
-
 
 module.exports = {
     obtenerEmpresas,

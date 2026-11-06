@@ -11,6 +11,74 @@ const {
     actualizarDatosTemporales
 } = require("../services/sesion.service");
 
+const {
+    obtenerOpcionesActualizacion
+} = require("../utils/opciones-actualizacion");
+
+
+function obtenerOpcionesMenu(usuarioRegistrado) {
+    const opcionesRegistrado = [
+        {
+            id: "buscar_vacantes",
+            title: "🔎 Buscar vacantes",
+            description: "Encuentra oportunidades laborales"
+        },
+        {
+            id: "ver_mis_datos",
+            title: "👤 Mi perfil",
+            description: "Consulta tus datos registrados"
+        },
+        {
+            id: "actualizar_datos",
+            title: "✏️ Actualizar mis datos",
+            description: "Mantén tu perfil actualizado"
+        },
+        {
+            id: "mis_postulaciones",
+            title: "📋 Mis postulaciones",
+            description: "Consulta tus solicitudes"
+        },
+        {
+            id: "hablar_asesor",
+            title: "💬 Atención personalizada",
+            description: "Solicita apoyo de un asesor"
+        },
+        {
+            id: "menu_principal",
+            title: "🏠 Menú principal",
+            description: "Consulta los servicios disponibles"
+        },
+        {
+            id: "salir",
+            title: "👋 Finalizar atención",
+            description: "Termina la conversación"
+        }
+    ];
+
+    const opcionesNoRegistrado = [
+        {
+            id: "buscar_vacantes",
+            title: "🔎 Buscar vacantes",
+            description: "Consulta oportunidades laborales"
+        },
+        {
+            id: "registrar_datos",
+            title: "📝 Registrar mis datos",
+            description: "Crea tu perfil en el SNE"
+        },
+        {
+            id: "salir",
+            title: "👋 Finalizar atención",
+            description: "Termina la conversación"
+        }
+    ];
+
+    return usuarioRegistrado
+        ? opcionesRegistrado
+        : opcionesNoRegistrado;
+}
+
+
 function obtenerPrimerDatoFaltante(usuario) {
 
     if (!usuario.nombre_completo?.trim()) {
@@ -134,60 +202,7 @@ Ejemplo:
     }
 }
 
-function obtenerMenuPrincipal(usuarioRegistrado) {
 
-    if (usuarioRegistrado) {
-
-        return `
-👋 *Menú principal*
-
-¿Qué deseas hacer?
-
-1️⃣ Buscar vacantes
-2️⃣ Ver mis datos
-3️⃣ Actualizar mis datos
-4️⃣ Mis postulaciones
-5️⃣ Hablar con un asesor
-6️⃣ Menú principal
-7️⃣ Salir
-`;
-    }
-
-    return `
-👋 *¡Bienvenido al Sistema Nacional de Empleo!*
-
-¿Qué deseas hacer?
-
-1️⃣ Buscar vacantes
-2️⃣ Registrar mis datos
-`;
-}
-
-
-function obtenerMenuInvalido(usuarioRegistrado) {
-
-    if (usuarioRegistrado) {
-
-        return `
-⚠️ *Selecciona una opción válida.*
-
-1️⃣ Buscar vacantes
-2️⃣ Ver mis datos
-3️⃣ Actualizar mis datos
-4️⃣ Mis postulaciones
-5️⃣ Hablar con un asesor
-6️⃣ Menú principal
-7️⃣ Salir
-`;
-    }
-
-    return `
-⚠️ *Selecciona una opción válida.*
-
-1️⃣ Buscar vacantes
-2️⃣ Registrar mis datos
-`;
-}
 
 
 async function procesarMenu(
@@ -198,6 +213,8 @@ async function procesarMenu(
 
     let respuesta = "";
     let siguientePaso = "menu";
+    let tipoRespuesta = null;
+    let opcionesMenu = null;
 
     const datosTemporales =
         sesion?.datos_temporales || {};
@@ -253,6 +270,13 @@ async function procesarMenu(
 
 
     switch (mensaje) {
+        case "mostrar_menu": {
+    respuesta = "Selecciona el servicio que deseas consultar.";
+    siguientePaso = "menu";
+    tipoRespuesta = "menu_interactivo";
+    opcionesMenu = obtenerOpcionesMenu(usuarioRegistrado);
+    break;
+}
 
 
 
@@ -353,26 +377,37 @@ Primero actualiza tu código postal.
 
 
 
-            respuesta = `
-🔎 *Buscar vacantes*
+            
+respuesta = "🔎 Buscar vacantes\n\n🎓 Selecciona tu último grado de estudios.";
 
-Para mostrarte las vacantes más cercanas a tu ubicación, primero necesitamos conocer tu nivel de estudios.
+siguientePaso = "esperando_escolaridad";
+tipoRespuesta = "menu_interactivo";
 
-🎓 Selecciona una opción:
+opcionesMenu = [
+    {
+        id: "1",
+        title: "📚 Primaria",
+        description: "Educación primaria"
+    },
+    {
+        id: "2",
+        title: "📘 Secundaria",
+        description: "Educación secundaria"
+    },
+    {
+        id: "3",
+        title: "🎓 Preparatoria",
+        description: "Preparatoria o vocacional"
+    },
+    {
+        id: "4",
+        title: "🎓 Licenciatura",
+        description: "Estudios universitarios"
+    }
+];
 
-1️⃣ Primaria
-2️⃣ Secundaria
-3️⃣ Preparatoria o vocacional
-4️⃣ Licenciatura
+break;
 
-6️⃣ Menú principal
-7️⃣ Salir
-`;
-
-            siguientePaso =
-                "esperando_escolaridad";
-
-            break;
         }
 
 
@@ -491,24 +526,13 @@ ${usuarioActual.correo || "No registrado"}
 ${usuarioActual.codigo_postal || "No registrado"}
 
 📄 *Folio:*
-${usuarioActual.folio || "Aún no asignado"}
+${usuarioActual.folio || "Aún no asignado"}`;
 
-━━━━━━━━━━━━━━━━━━
+siguientePaso = "menu";
+tipoRespuesta = "menu_interactivo";
+opcionesMenu = obtenerOpcionesMenu(true);
 
-¿Qué deseas hacer?
-
-1️⃣ Buscar vacantes
-3️⃣ Actualizar mis datos
-4️⃣ Mis postulaciones
-5️⃣ Hablar con un asesor
-6️⃣ Menú principal
-7️⃣ Salir
-`;
-
-                siguientePaso =
-                    "menu";
-
-                break;
+break;
             }
 
 
@@ -533,48 +557,38 @@ Primero necesitamos verificar si ya estás registrado en el Sistema Nacional de 
         }
 
 
-        case "3": {
+        
+case "3": {
 
-            if (!usuarioRegistrado) {
-
-                respuesta = `
+    if (!usuarioRegistrado) {
+        respuesta = `
 ⚠️ No encontramos ningún registro asociado a este número.
 
 Primero debes registrar tus datos.
 `;
+        siguientePaso = "menu";
+        break;
+    }
 
-                siguientePaso =
-                    "menu";
+    console.log(
+        "✏️ Usuario encontrado para actualización."
+    );
 
-                break;
-            }
+    console.log(
+        "🆔 ID:",
+        usuarioActual.id
+    );
 
+    respuesta =
+        "✏️ Selecciona el dato que deseas actualizar.";
 
-            console.log(
-                "✏️ Usuario encontrado para actualización."
-            );
+    siguientePaso = "seleccionar_actualizacion";
+    tipoRespuesta = "menu_interactivo";
+    opcionesMenu = obtenerOpcionesActualizacion();
 
-            console.log(
-                "🆔 ID:",
-                usuarioActual.id
-            );
+    break;
+}
 
-
-            respuesta = `
-✏️ *¿Qué dato deseas actualizar?*
-
-1️⃣ Correo
-2️⃣ Código postal
-
-6️⃣ Menú principal
-7️⃣ Salir
-`;
-
-            siguientePaso =
-                "seleccionar_actualizacion";
-
-            break;
-        }
 
 
 case "4": {
@@ -592,26 +606,22 @@ Primero debes registrar tus datos.
         break;
     }
 
-
     console.log(
         "📋 Abriendo Mis postulaciones directamente..."
     );
 
+    const resultado = await mostrarListadoPostulaciones(
+        sesion,
+        telefono
+    );
 
-    const resultado =
-        await mostrarListadoPostulaciones(
-            sesion,
-            telefono
-        );
+    respuesta = resultado.respuesta;
+    siguientePaso = resultado.siguientePaso;
+    tipoRespuesta = resultado.tipoRespuesta || null;
+    opcionesMenu = resultado.opcionesMenu || null;
 
-
-    respuesta =
-        resultado.respuesta;
-
-
-    siguientePaso =
-        resultado.siguientePaso;
-
+    mostrarMenuPrincipal =
+        resultado.mostrarMenuPrincipal === true;
 
     break;
 }
@@ -631,49 +641,40 @@ Primero debes registrar tus datos.
             break;
 
 
-        case "6":
 
-    respuesta =
-        obtenerMenuPrincipal(usuarioRegistrado);
+        case "6": {
+            respuesta = "Volvamos al menú principal.";
+            siguientePaso = "menu";
+            tipoRespuesta = "menu_principal";
+            break;
+        }
 
-    siguientePaso =
-        "menu";
-
-    break;
-
-
-        case "7":
-
+        case "7": {
             respuesta = `
 👋 Gracias por utilizar el asistente SNE.
 `;
-
-            siguientePaso =
-                "finalizado";
-
+            siguientePaso = "finalizado";
             break;
+        }
 
-
-        default:
-
-    respuesta =
-        obtenerMenuInvalido(usuarioRegistrado);
-
-    siguientePaso =
-        "menu";
-
-    break;
-
+        default: {
+            respuesta = "⚠️ No reconocí esa opción. Selecciona una opción del menú.";
+            siguientePaso = "menu";
+            tipoRespuesta = "menu_principal";
+            break;
+        }
     }
-
 
     return {
         respuesta,
-        siguientePaso
+        siguientePaso,
+        tipoRespuesta,
+        opcionesMenu,
+        usuarioRegistrado
     };
 }
 
-
 module.exports = {
-    procesarMenu
+    procesarMenu,
+    obtenerOpcionesMenu
 };

@@ -1,6 +1,13 @@
+const db = require("../config/database");
+
+const {
+    buscarSolicitanteSQLServerPorCURP
+} = require("../repositories/solicitantes.repository");
 
 const {
     buscarPorCURP,
+    buscarSolicitantePorCURPEnAmbasBases,
+    importarBuscadorHistorico,
     crearBuscadorCompleto,
     actualizarBuscadorCompletoPorId,
     actualizarCampoPerfilPorId
@@ -41,10 +48,6 @@ const {
 } = require("../utils/menu");
 
 
-// ============================================================
-// CÓDIGO DE SEGURIDAD
-// ============================================================
-
 function generarCodigoSeguridad() {
 
     return Math.floor(
@@ -54,9 +57,6 @@ function generarCodigoSeguridad() {
 }
 
 
-// ============================================================
-// OBTENER PRIMER DATO FALTANTE
-// ============================================================
 
 function obtenerPrimerDatoFaltante(usuario) {
 
@@ -84,9 +84,6 @@ function obtenerPrimerDatoFaltante(usuario) {
 }
 
 
-// ============================================================
-// OBTENER SIGUIENTE PASO DEL PERFIL
-// ============================================================
 
 function obtenerSiguientePasoPerfil(usuario) {
 
@@ -183,240 +180,220 @@ Ejemplo:
 }
 
 
+function interpretarVacanteSeleccionada(valor) {
+    if (valor && typeof valor === "object") {
+        const id = Number(valor.id);
+        const origen =
+            valor.origen ||
+            valor.origen_vacante ||
+            "postgresql";
+
+        if (
+            Number.isSafeInteger(id) &&
+            id > 0 &&
+            ["postgresql", "sqlserver"].includes(origen)
+        ) {
+            return { id, origen };
+        }
+
+        return null;
+    }
+
+    let texto = String(valor ?? "").trim();
+
+    // Compatibilidad con identificadores de la lista de WhatsApp.
+    if (texto.startsWith("vacante_")) {
+        texto = texto.slice("vacante_".length);
+    }
+
+    // Compatibilidad con registros anteriores que guardaban solo el ID.
+    if (/^\d+$/.test(texto)) {
+        const id = Number(texto);
+
+        return Number.isSafeInteger(id) && id > 0
+            ? { id, origen: "postgresql" }
+            : null;
+    }
+
+    const coincidencia = texto.match(
+        /^(postgresql|sqlserver)_(\d+)$/
+    );
+
+    if (!coincidencia) {
+        return null;
+    }
+
+    const id = Number(coincidencia[2]);
+
+    if (!Number.isSafeInteger(id) || id <= 0) {
+        return null;
+    }
+
+    return {
+        id,
+        origen: coincidencia[1]
+    };
+}
+
+
 // ============================================================
 // GENERAR Y ENVIAR COMPROBANTE
 // ============================================================
 
 async function procesarPostulacionYComprobante(
     buscadorId,
-    vacanteId,
+    vacanteSeleccionada,
     telefono
 ) {
+    let rutaArchivoTemporal = null;
+    let postulacionNueva = false;
+    let postulacionCreada = false;
+
+    const seleccion =
+        interpretarVacanteSeleccionada(vacanteSeleccionada);
+
+    if (!seleccion) {
+        return {
+            postulacionCreada: false,
+            postulacionNueva: false,
+            comprobanteEnviado: false,
+            error: "La vacante seleccionada no tiene un ID u origen válido."
+        };
+    }
 
     try {
+        console.log("📝 Procesando postulación automática...");
+        console.log("🆔 Buscador:", buscadorId);
+        console.log("🆔 Vacante:", seleccion.id);
+        console.log("📦 Origen:", seleccion.origen);
 
-        console.log(
-            "📝 Procesando postulación automática..."
+        // 1. Crear la postulación.
+        let postulacion = await crearPostulacion(
+            buscadorId,
+            seleccion.id,
+            seleccion.origen
         );
 
-        console.log(
-            "🆔 Buscador:",
-            buscadorId
-        );
+        postulacionNueva = Boolean(postulacion);
 
-        console.log(
-            "🆔 Vacante:",
-            vacanteId
-        );
-
-
-        // ----------------------------------------------------
-        // Crear postulación
-        // ----------------------------------------------------
-
-        let postulacion =
-            await crearPostulacion(
-                buscadorId,
-                vacanteId
-            );
-
-
-        /*
-         * Si devuelve null, normalmente significa que
-         * la postulación ya existía por el ON CONFLICT.
-         *
-         * En lugar de considerar que falló, buscamos
-         * la postulación existente.
-         */
-
+        // 2. Recuperar si ya existía.
         if (!postulacion) {
-
             console.log(
-                "ℹ️ La postulación ya existía. Buscando registro existente..."
+                "ℹ️ Buscando postulación existente..."
             );
-
 
             postulacion =
                 await obtenerPostulacionPorBuscadorYVacante(
                     buscadorId,
-                    vacanteId
+                    seleccion.id,
+                    seleccion.origen
                 );
         }
 
-
         if (!postulacion) {
-
-            console.error(
-                "🔴 No fue posible obtener la postulación."
+            throw new Error(
+                "No fue posible crear o recuperar la postulación."
             );
-
-
-            return {
-                postulacionCreada: false,
-                comprobanteEnviado: false
-            };
         }
 
+        // Desde aquí sabemos que existe el registro
+        // correspondiente en PostgreSQL.
+        postulacionCreada = true;
 
         console.log(
-            "✅ Postulación encontrada/creada correctamente."
-        );
-
-        console.log(
-            "🆔 ID de postulación:",
+            "✅ Postulación encontrada o creada:",
             postulacion.id
         );
 
-
-        // ----------------------------------------------------
-        // Obtener datos del comprobante
-        // ----------------------------------------------------
-
+        // 3. Obtener información para el comprobante.
         const datosComprobante =
-            await obtenerDatosComprobante(
-                postulacion.id
-            );
-
+            await obtenerDatosComprobante(postulacion.id);
 
         if (!datosComprobante) {
-
-            console.error(
-                "🔴 No se encontraron datos para generar el comprobante."
+            throw new Error(
+                "La postulación existe, pero no se encontraron sus datos para generar el comprobante."
             );
-
-
-            return {
-                postulacionCreada: true,
-                comprobanteEnviado: false,
-                postulacionId: postulacion.id
-            };
         }
 
-
-        console.log(
-            "🟢 Datos del comprobante obtenidos correctamente."
-        );
-
-
-        // ----------------------------------------------------
-        // Generar PDF
-        // ----------------------------------------------------
-
+        // 4. Generar PDF.
         const comprobante =
             await generarComprobantePostulacion(
                 datosComprobante
             );
 
+        rutaArchivoTemporal = comprobante.rutaArchivo;
 
         console.log(
-            "🟢 Comprobante generado correctamente:"
+            "🟢 Comprobante generado:",
+            rutaArchivoTemporal
         );
 
-        console.log(
-            comprobante.rutaArchivo
-        );
-
-
-        // ----------------------------------------------------
-        // Subir PDF a WhatsApp
-        // ----------------------------------------------------
-
+        // 5. Enviar por WhatsApp.
         const mediaId =
             await subirDocumentoWhatsApp(
                 comprobante.rutaArchivo
             );
 
-
-        console.log(
-            "🟢 PDF subido correctamente a WhatsApp."
-        );
-
-
-        // ----------------------------------------------------
-        // Enviar PDF al usuario
-        // ----------------------------------------------------
-
         await enviarDocumentoWhatsApp(
-
             telefono,
-
             mediaId,
-
             comprobante.nombreArchivo,
-
             "📄 Comprobante de postulación"
-
         );
-
 
         console.log(
-            "🟢 Comprobante enviado correctamente al usuario."
+            "🟢 Comprobante enviado correctamente."
         );
-
-
-        // ----------------------------------------------------
-        // Eliminar archivo temporal
-        // ----------------------------------------------------
-
-        const fs = require("fs");
-
-        fs.unlink(
-            comprobante.rutaArchivo,
-            (error) => {
-
-                if (error) {
-
-                    console.error(
-                        "⚠️ No se pudo eliminar el PDF temporal:",
-                        error.message
-                    );
-
-                } else {
-
-                    console.log(
-                        "🗑️ PDF temporal eliminado correctamente."
-                    );
-
-                }
-
-            }
-        );
-
 
         return {
             postulacionCreada: true,
+            postulacionNueva,
             comprobanteEnviado: true,
             postulacionId: postulacion.id,
             comprobante
         };
 
-
     } catch (error) {
 
-        /*
-         * IMPORTANTE:
-         *
-         * Si falla la generación, subida o envío del PDF,
-         * NO eliminamos ni revertimos la postulación.
-         *
-         * La postulación ya quedó registrada en PostgreSQL.
-         */
-
         console.error(
-            "🔴 Error generando/enviando comprobante:"
+            "🔴 Error al procesar la postulación o comprobante:"
         );
 
         console.error(
-            error.response?.data ||
-            error.message
+            error.response?.data || error.message
         );
-
 
         return {
-            postulacionCreada: true,
+            postulacionCreada,
+            postulacionNueva,
             comprobanteEnviado: false,
-            error
+            error: error.message
         };
+
+    } finally {
+
+        // 6. Eliminar PDF temporal.
+        if (rutaArchivoTemporal) {
+            const fs = require("fs");
+
+            try {
+                await fs.promises.unlink(
+                    rutaArchivoTemporal
+                );
+
+                console.log(
+                    "🟢 PDF temporal eliminado."
+                );
+
+            } catch (error) {
+                if (error.code !== "ENOENT") {
+                    console.error(
+                        "No se pudo eliminar el PDF:",
+                        error.message
+                    );
+                }
+            }
+        }
     }
 }
 
@@ -430,51 +407,58 @@ async function finalizarPerfilYPostulacion(
     datosTemporales,
     telefono
 ) {
-
     let postulacionAutomatica = false;
+    let postulacionNueva = false;
     let comprobanteEnviado = false;
-
+    let errorPostulacion = null;
 
     if (
         datosTemporales.registro_desde_postulacion &&
         datosTemporales.vacante_seleccionada
     ) {
-
         console.log(
             "📝 El registro proviene de una postulación."
         );
 
+        try {
 
-        const resultado =
-            await procesarPostulacionYComprobante(
+            const resultado =
+                await procesarPostulacionYComprobante(
+                    buscador.id,
+                    datosTemporales.vacante_seleccionada,
+                    telefono
+                );
 
-                buscador.id,
+            postulacionAutomatica =
+                resultado.postulacionCreada === true;
 
-                datosTemporales.vacante_seleccionada,
-
-                telefono
-
-            );
-
-
-        if (resultado.postulacionCreada) {
-
-            postulacionAutomatica = true;
+            postulacionNueva =
+                resultado.postulacionNueva === true;
 
             comprobanteEnviado =
-                resultado.comprobanteEnviado;
+                resultado.comprobanteEnviado === true;
 
+            errorPostulacion =
+                resultado.error || null;
+
+        } catch (error) {
+
+            console.error(
+                "🔴 Error al finalizar la postulación:",
+                error.message
+            );
+
+            errorPostulacion = error.message;
         }
-
     }
-
 
     return {
         postulacionAutomatica,
-        comprobanteEnviado
+        postulacionNueva,
+        comprobanteEnviado,
+        errorPostulacion
     };
 }
-
 
 // ============================================================
 // PROCESAR REGISTRO
@@ -546,8 +530,22 @@ Verifica que tenga 18 caracteres e intenta nuevamente.`;
             }
 
 
-            const buscadorExistente =
-                await buscarPorCURP(curp);
+            
+const resultadoBusqueda =
+    await buscarSolicitantePorCURPEnAmbasBases(curp);
+
+const origenRegistro = resultadoBusqueda.origen;
+
+const buscadorExistente =
+    origenRegistro === "postgresql"
+        ? resultadoBusqueda.solicitante
+        : null;
+
+const solicitanteHistorico =
+    origenRegistro === "sqlserver"
+        ? resultadoBusqueda.solicitante
+        : null;
+
 
 
             // ------------------------------------------------
@@ -825,6 +823,231 @@ Escribe el código de 6 dígitos para continuar.
                 break;
             }
 
+            // ------------------------------------------------
+                        // REGISTRO ENCONTRADO SOLO EN SQL SERVER
+                        // ------------------------------------------------
+            
+                        if (solicitanteHistorico) {
+            
+                            const telefonoHistorico = String(
+                                solicitanteHistorico.telefono || ""
+                            ).replace(/\D/g, "");
+            
+                            const telefonoActual = String(
+                                telefono || ""
+                            ).replace(/\D/g, "");
+            
+                            // Comparar los últimos 10 dígitos para tolerar
+                            // diferencias de prefijo telefónico de México.
+                            const telefonoCoincide =
+                                telefonoHistorico.length >= 10 &&
+                                telefonoActual.length >= 10 &&
+                                telefonoHistorico.slice(-10) ===
+                                telefonoActual.slice(-10);
+            
+                            // --------------------------------------------
+                            // TELÉFONO COINCIDENTE: RECUPERAR DATOS
+                            // --------------------------------------------
+            
+                            if (telefonoCoincide) {
+            
+                                const buscadorImportado =
+                                    await importarBuscadorHistorico(
+                                        {
+                                            curp: curp,
+                                            nombre_completo:
+                                                solicitanteHistorico.nombre,
+                                            fecha_nacimiento:
+                                                solicitanteHistorico.fechaNacimiento,
+                                            sexo:
+                                                solicitanteHistorico.sexo,
+                                            correo:
+                                                solicitanteHistorico.correo,
+                                            codigo_postal:
+                                                solicitanteHistorico.codigoPostal
+                                        },
+                                        telefono
+                                    );
+            
+                                console.log(
+                                    "Registro histórico recuperado en PostgreSQL."
+                                );
+            
+                                const siguiente =
+                                    obtenerSiguientePasoPerfil(
+                                        buscadorImportado
+                                    );
+            
+                                if (
+                                    buscadorImportado.perfil_completo &&
+                                    !siguiente
+                                ) {
+            
+                                    await actualizarDatosTemporales(
+                                        telefono,
+                                        {}
+                                    );
+            
+                                    respuesta =
+            `✅ *¡Recuperamos tu registro del SNE!*
+            
+            Tus datos ya están disponibles en el chatbot.
+            
+            📄 Folio: ${
+                buscadorImportado.folio || "Aún no asignado"
+            }
+            
+            ¿Qué deseas hacer?
+            
+            1️⃣ Buscar vacantes
+            2️⃣ Ver mis datos
+            3️⃣ Actualizar mis datos
+            4️⃣ Mis postulaciones
+            5️⃣ Hablar con un asesor
+            6️⃣ Menú principal
+            7️⃣ Salir`;
+            
+                                    siguientePaso = "menu";
+            
+                                } else if (siguiente) {
+            
+                                    datosTemporales = {
+                                        curp: curp,
+                                        usuario_existente_id:
+                                            buscadorImportado.id,
+                                        completando_perfil: true,
+                                        origen_registro: "sqlserver"
+                                    };
+            
+                                    datosTemporales.dato_perfil_actual =
+                                        siguiente.dato;
+            
+                                    await actualizarDatosTemporales(
+                                        telefono,
+                                        datosTemporales
+                                    );
+            
+                                    respuesta =
+            `✅ Recuperamos tu registro histórico del SNE.
+            
+            Solo necesitamos completar los datos que faltan para habilitar tu perfil.
+            
+            ${siguiente.respuesta}`;
+            
+                                    siguientePaso = siguiente.paso;
+            
+                                } else {
+            
+                                    await actualizarDatosTemporales(
+                                        telefono,
+                                        {}
+                                    );
+            
+                                    respuesta =
+            `✅ Tu registro histórico fue recuperado.
+            
+            Puedes continuar desde el menú principal.`;
+            
+                                    siguientePaso = "menu";
+                                }
+            
+                                break;
+                            }
+            
+                            // --------------------------------------------
+                            // TELÉFONO DIFERENTE: ENVIAR CÓDIGO
+                            // --------------------------------------------
+            
+                            if (!telefonoHistorico) {
+            
+                                await actualizarDatosTemporales(
+                                    telefono,
+                                    {}
+                                );
+            
+                                respuesta =
+            `🔐 No podemos verificar automáticamente el registro histórico.
+            
+            Puedes volver al menú principal y continuar buscando vacantes como visitante.`;
+            
+                                siguientePaso = "menu";
+            
+                                break;
+                            }
+            
+                            const codigo = generarCodigoSeguridad();
+            
+                            const expiracion =
+                                Date.now() + (10 * 60 * 1000);
+            
+                            datosTemporales = {
+                                curp: curp,
+                                origen_registro: "sqlserver",
+                                telefono_original:
+                                    solicitanteHistorico.telefono,
+                                codigo_seguridad: codigo,
+                                codigo_expira: expiracion,
+                                intentos_codigo: 0
+                            };
+            
+                            await actualizarDatosTemporales(
+                                telefono,
+                                datosTemporales
+                            );
+            
+                            try {
+            
+                                await enviarMensajeWhatsApp(
+                                    solicitanteHistorico.telefono,
+            `🔐 *Código de seguridad SNE*
+            
+            Se solicitó recuperar un registro mediante otro número de WhatsApp.
+            
+            Tu código temporal es:
+            
+            *${codigo}*
+            
+            ⏱️ Válido durante 10 minutos.
+            
+            No compartas este código con otras personas. Si no solicitaste esta operación, ignora este mensaje.`
+                                );
+            
+                            } catch (error) {
+            
+                                console.error(
+                                    "No se pudo enviar el código de recuperación:",
+                                    error.message
+                                );
+            
+                                await actualizarDatosTemporales(
+                                    telefono,
+                                    {}
+                                );
+            
+                                respuesta =
+            `❌ No fue posible enviar el código de seguridad.
+            
+            Puedes volver al menú y buscar vacantes como visitante.`;
+            
+                                siguientePaso = "menu";
+            
+                                break;
+                            }
+            
+                            respuesta =
+            `🔐 *Verificación de seguridad*
+            
+            Para recuperar tu registro histórico, enviamos un código al teléfono asociado a ese registro.
+            
+            Escribe aquí el código de 6 dígitos.
+            
+            ⏱️ Es válido durante 10 minutos.`;
+            
+                            siguientePaso = "esperando_codigo_seguridad";
+            
+                            break;
+                        }
+
 
             // ------------------------------------------------
             // CURP NUEVA
@@ -995,105 +1218,102 @@ Verifica el código enviado al número registrado e intenta nuevamente.`;
             }
 
 
-            const usuarioAutorizado =
-                await buscarPorCURP(
-                    datosTemporales.curp
-                );
+            if (
+                datosTemporales.origen_registro === "sqlserver"
+            ) {
 
+                const solicitanteHistorico =
+                    await buscarSolicitanteSQLServerPorCURP(
+                        datosTemporales.curp
+                    );
 
-            if (!usuarioAutorizado) {
+                const normalizarTelefono = (valor) =>
+                    String(valor || "")
+                        .replace(/\D/g, "")
+                        .slice(-10);
+
+                const telefonoOriginal =
+                    normalizarTelefono(
+                        datosTemporales.telefono_original
+                    );
+
+                const telefonoHistorico =
+                    normalizarTelefono(
+                        solicitanteHistorico?.telefono
+                    );
+
+                // Volver a verificar que el registro siga
+                // asociado al teléfono al que se envió el código.
+                if (
+                    !solicitanteHistorico ||
+                    !telefonoOriginal ||
+                    !telefonoHistorico ||
+                    telefonoOriginal !== telefonoHistorico
+                ) {
+
+                    await actualizarDatosTemporales(
+                        telefono,
+                        {}
+                    );
+
+                    respuesta =
+`❌ No fue posible validar el registro histórico.
+
+Por seguridad, la recuperación ha sido cancelada.
+
+Puedes volver al menú principal y buscar vacantes como visitante.`;
+
+                    siguientePaso = "menu";
+
+                    break;
+                }
+
+                // Importar únicamente después de validar el código.
+                const buscadorImportado =
+                    await importarBuscadorHistorico(
+                        {
+                            curp: solicitanteHistorico.curp,
+                            nombre_completo:
+                                solicitanteHistorico.nombre,
+                            fecha_nacimiento:
+                                solicitanteHistorico.fechaNacimiento,
+                            sexo: solicitanteHistorico.sexo,
+                            correo: solicitanteHistorico.correo,
+                            codigo_postal:
+                                solicitanteHistorico.codigoPostal
+                        },
+                        telefono
+                    );
 
                 console.log(
-                    "🔴 No se encontró el registro asociado a la CURP:",
-                    datosTemporales.curp
+                    "Registro histórico recuperado."
                 );
 
+                // Comprobar qué datos del perfil faltan.
+                const siguiente =
+                    obtenerSiguientePasoPerfil(
+                        buscadorImportado
+                    );
 
-                await actualizarDatosTemporales(
-                    telefono,
-                    {}
-                );
+                // Perfil completo: mostrar menú.
+                if (
+                    buscadorImportado.perfil_completo &&
+                    !siguiente
+                ) {
 
+                    await actualizarDatosTemporales(
+                        telefono,
+                        {}
+                    );
 
-                respuesta =
-`❌ No encontramos el registro asociado a esta CURP.
+                    respuesta =
+`✅ *¡Recuperamos tu registro del SNE!*
 
-Por seguridad, el acceso ha sido cancelado.
+Tus datos ya están disponibles en el chatbot.
 
-Puedes iniciar nuevamente desde el menú principal.`;
-
-
-                siguientePaso =
-                    "menu";
-
-
-                break;
-            }
-
-
-            console.log(
-                "🟢 Código de seguridad correcto."
-            );
-
-
-            console.log(
-                "🆔 CURP autorizada:",
-                datosTemporales.curp
-            );
-
-
-            console.log(
-                "🆔 Usuario autorizado:",
-                usuarioAutorizado.id
-            );
-
-
-            console.log(
-                "📱 Teléfono registrado:",
-                usuarioAutorizado.telefono
-            );
-
-
-            datosTemporales.seguridad_verificada =
-                true;
-
-
-            datosTemporales.fecha_autorizacion =
-                Date.now();
-
-
-            datosTemporales.usuario_autorizado_id =
-                usuarioAutorizado.id;
-
-
-            datosTemporales.telefono_registrado =
-                usuarioAutorizado.telefono;
-
-
-            delete datosTemporales.codigo_seguridad;
-
-            delete datosTemporales.codigo_expira;
-
-            delete datosTemporales.intentos_codigo;
-
-
-            await actualizarDatosTemporales(
-                telefono,
-                datosTemporales
-            );
-
-
-            respuesta =
-`✅ *Verificación exitosa*
-
-Tu identidad fue verificada correctamente.
-
-🔐 El acceso a tu registro ha sido autorizado.
-
-📄 CURP:
-${datosTemporales.curp}
-
-⚠️ El número de WhatsApp registrado todavía no ha sido modificado.
+📄 Folio: ${
+    buscadorImportado.folio || "Aún no asignado"
+}
 
 ¿Qué deseas hacer?
 
@@ -1105,18 +1325,137 @@ ${datosTemporales.curp}
 6️⃣ Menú principal
 7️⃣ Salir`;
 
+                    siguientePaso = "menu";
 
-            siguientePaso =
-                "menu";
+                    break;
+                }
 
+                // Perfil incompleto: solicitar el dato faltante.
+                if (siguiente) {
+
+                    datosTemporales = {
+                        curp: solicitanteHistorico.curp,
+                        usuario_existente_id:
+                            buscadorImportado.id,
+                        completando_perfil: true,
+                        origen_registro: "sqlserver",
+                        dato_perfil_actual: siguiente.dato
+                    };
+
+                    await actualizarDatosTemporales(
+                        telefono,
+                        datosTemporales
+                    );
+
+                    respuesta =
+`✅ Recuperamos tu registro histórico del SNE.
+
+Solo necesitamos completar los datos que faltan para habilitar tu perfil.
+
+${siguiente.respuesta}`;
+
+                    siguientePaso = siguiente.paso;
+
+                    break;
+                }
+
+                // Evitar dejar un perfil incompleto sin indicaciones.
+                await actualizarDatosTemporales(
+                    telefono,
+                    {}
+                );
+
+                respuesta =
+`⚠️ Recuperamos el registro, pero no pudimos determinar qué dato del perfil falta.
+
+Por favor, vuelve al menú principal para continuar.`;
+
+                siguientePaso = "menu";
+
+                break;
+            }
+
+
+            // ----------------------------------------------------
+            // CASO 2: REGISTRO QUE YA EXISTE EN POSTGRESQL
+            // Mantener el comportamiento anterior.
+            // ----------------------------------------------------
+
+            const usuarioAutorizado =
+                await buscarPorCURP(
+                    datosTemporales.curp
+                );
+
+            if (!usuarioAutorizado) {
+
+                console.log(
+                    "No se encontró el registro asociado a la CURP."
+                );
+
+                await actualizarDatosTemporales(
+                    telefono,
+                    {}
+                );
+
+                respuesta =
+`❌ No encontramos el registro asociado a esta CURP.
+
+Por seguridad, el acceso ha sido cancelado.
+
+Puedes iniciar nuevamente desde el menú principal.`;
+
+                siguientePaso = "menu";
+
+                break;
+            }
+
+            console.log(
+                "Código de seguridad correcto."
+            );
+
+            datosTemporales.seguridad_verificada = true;
+
+            datosTemporales.fecha_autorizacion =
+                Date.now();
+
+            datosTemporales.usuario_autorizado_id =
+                usuarioAutorizado.id;
+
+            datosTemporales.telefono_registrado =
+                usuarioAutorizado.telefono;
+
+            delete datosTemporales.codigo_seguridad;
+            delete datosTemporales.codigo_expira;
+            delete datosTemporales.intentos_codigo;
+
+            await actualizarDatosTemporales(
+                telefono,
+                datosTemporales
+            );
+
+            respuesta =
+`✅ *Verificación exitosa*
+
+Tu identidad fue verificada correctamente.
+
+🔐 El acceso a tu registro ha sido autorizado.
+
+¿Qué deseas hacer?
+
+1️⃣ Buscar vacantes
+2️⃣ Ver mis datos
+3️⃣ Actualizar mis datos
+4️⃣ Mis postulaciones
+5️⃣ Hablar con un asesor
+6️⃣ Menú principal
+7️⃣ Salir`;
+
+            siguientePaso = "menu";
 
             break;
+
         }
 
-
-        // ====================================================
-        // NOMBRE
-        // ====================================================
 
         case "esperando_nombre": {
 
@@ -1174,11 +1513,6 @@ Puedes escribirla, por ejemplo:
             break;
         }
 
-
-        // ====================================================
-        // FECHA
-        // ====================================================
-
         case "esperando_fecha": {
 
             const fecha =
@@ -1197,11 +1531,6 @@ Ejemplo:
 
                 break;
             }
-
-
-            // ------------------------------------------------
-            // PERFIL EXISTENTE
-            // ------------------------------------------------
 
             if (
                 datosTemporales.completando_perfil &&
@@ -1284,9 +1613,11 @@ Tu folio es:
 
 ━━━━━━━━━━━━━━━━━━
 
-✅ *¡Postulación registrada!*
-
-La vacante que seleccionaste también fue registrada correctamente.
+${
+    resultado.postulacionNueva
+        ? "✅ *¡Postulación registrada!*\n\nLa vacante que seleccionaste también fue registrada correctamente."
+        : "ℹ️ *Esta postulación ya estaba registrada.*\n\nNo se creó una solicitud duplicada."
+}
 
 ${
     resultado.comprobanteEnviado
@@ -1336,10 +1667,6 @@ Tu folio es:
             }
 
 
-            // ------------------------------------------------
-            // NUEVO REGISTRO
-            // ------------------------------------------------
-
             datosTemporales.fecha_nacimiento =
                 fecha;
 
@@ -1366,9 +1693,6 @@ ${generarMenu(sexo)}`;
         }
 
 
-        // ====================================================
-        // SEXO
-        // ====================================================
 
         case "esperando_sexo": {
 
@@ -1387,10 +1711,6 @@ ${generarMenu(sexo)}`;
             const sexoSeleccionado =
                 sexo[mensaje];
 
-
-            // ------------------------------------------------
-            // PERFIL EXISTENTE
-            // ------------------------------------------------
 
             if (
                 datosTemporales.completando_perfil &&
@@ -1473,10 +1793,11 @@ Tu folio es:
 
 ━━━━━━━━━━━━━━━━━━
 
-✅ *¡Postulación registrada!*
-
-La vacante que seleccionaste también fue registrada correctamente.
-
+${
+    resultado.postulacionNueva
+        ? "✅ *¡Postulación registrada!*\n\nLa vacante que seleccionaste también fue registrada correctamente."
+        : "ℹ️ *Esta postulación ya estaba registrada.*\n\nNo se creó una solicitud duplicada."
+}
 ${
     resultado.comprobanteEnviado
         ? "📄 *Te enviamos tu comprobante de postulación en este chat.*"
@@ -1525,10 +1846,6 @@ Tu folio es:
             }
 
 
-            // ------------------------------------------------
-            // NUEVO REGISTRO
-            // ------------------------------------------------
-
             datosTemporales.sexo =
                 sexoSeleccionado;
 
@@ -1553,9 +1870,6 @@ Tu folio es:
         }
 
 
-        // ====================================================
-        // CORREO
-        // ====================================================
 
         case "esperando_correo": {
 
@@ -1582,10 +1896,6 @@ nombre@correo.com`;
                 break;
             }
 
-
-            // ------------------------------------------------
-            // PERFIL EXISTENTE
-            // ------------------------------------------------
 
             if (
                 datosTemporales.completando_perfil &&
@@ -1731,11 +2041,6 @@ Tu folio es:
                 break;
             }
 
-
-            // ------------------------------------------------
-            // NUEVO REGISTRO
-            // ------------------------------------------------
-
             datosTemporales.correo =
                 correo;
 
@@ -1764,10 +2069,6 @@ Ejemplo:
         }
 
 
-        // ====================================================
-        // CÓDIGO POSTAL
-        // ====================================================
-
         case "esperando_codigo_postal": {
 
             const codigoPostal =
@@ -1787,10 +2088,6 @@ Ejemplo:
                 break;
             }
 
-
-            // ------------------------------------------------
-            // PERFIL EXISTENTE
-            // ------------------------------------------------
 
             if (
                 datosTemporales.completando_perfil &&
@@ -1937,10 +2234,6 @@ Tu folio es:
             }
 
 
-            // ------------------------------------------------
-            // NUEVO REGISTRO
-            // ------------------------------------------------
-
             datosTemporales.codigo_postal =
                 codigoPostal;
 
@@ -1967,9 +2260,6 @@ Tu folio es:
                 let buscadorCreado;
 
 
-                // --------------------------------------------
-                // ACTUALIZAR REGISTRO EXISTENTE
-                // --------------------------------------------
 
                 if (
                     datosTemporales.usuario_existente_id
@@ -2003,9 +2293,7 @@ Tu folio es:
 
                 } else {
 
-                    // ----------------------------------------
-                    // CREAR REGISTRO NUEVO
-                    // ----------------------------------------
+
 
                     console.log(
                         "🆕 Creando nuevo registro..."
@@ -2028,11 +2316,9 @@ Tu folio es:
                 }
 
 
-                // --------------------------------------------
-                // POSTULACIÓN AUTOMÁTICA
-                // --------------------------------------------
 
                 let postulacionAutomatica = false;
+                let postulacionNueva = false;
                 let comprobanteEnviado = false;
 
 
@@ -2053,31 +2339,22 @@ Tu folio es:
                         );
 
 
-                    if (
-                        resultado.postulacionCreada
-                    ) {
+                    if (resultado.postulacionCreada) {
+    postulacionAutomatica = true;
 
-                        postulacionAutomatica = true;
+    postulacionNueva =
+        resultado.postulacionNueva ?? false;
 
-                        comprobanteEnviado =
-                            resultado.comprobanteEnviado;
-                    }
+    comprobanteEnviado =
+        resultado.comprobanteEnviado;
+}
                 }
-
-
-                // --------------------------------------------
-                // LIMPIAR SESIÓN
-                // --------------------------------------------
 
                 await actualizarDatosTemporales(
                     telefono,
                     {}
                 );
 
-
-                // --------------------------------------------
-                // RESPUESTA FINAL
-                // --------------------------------------------
 
                 if (postulacionAutomatica) {
 
