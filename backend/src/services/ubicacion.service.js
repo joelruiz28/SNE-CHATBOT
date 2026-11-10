@@ -46,15 +46,9 @@ function obtenerPrioridadProximidad(
         .trim()
         .toUpperCase();
 
-
-
-    // MISMO MUNICIPIO
     if (usuario === vacante) {
         return 0;
     }
-
-
-    // ORDEN DE PROXIMIDAD
 
 
     const proximidad = {
@@ -169,8 +163,6 @@ function obtenerPrioridadProximidad(
     return 100;
 }
 
-
-
 function ordenarPorProximidad(
     vacantes,
     municipioUsuario
@@ -194,7 +186,6 @@ function ordenarPorProximidad(
         })
         .sort((a, b) => {
 
-            // Primero la cercanía
             if (
                 a.prioridad_proximidad !==
                 b.prioridad_proximidad
@@ -207,8 +198,7 @@ function ordenarPorProximidad(
 
             }
 
-            // Si están igual de cerca,
-            // mostrar primero la más reciente
+
             return (
                 new Date(b.fecha_publicacion) -
                 new Date(a.fecha_publicacion)

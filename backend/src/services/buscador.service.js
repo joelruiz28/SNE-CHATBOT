@@ -178,26 +178,6 @@ async function generarFolio(telefono) {
 }
 
 
-async function completarPerfil(telefono) {
-
-    await db.query(
-        `
-        UPDATE buscadores_empleo
-        SET perfil_completo = (
-            NULLIF(TRIM(nombre_completo), '') IS NOT NULL
-            AND NULLIF(TRIM(curp), '') IS NOT NULL
-            AND fecha_nacimiento IS NOT NULL
-            AND NULLIF(TRIM(sexo), '') IS NOT NULL
-            AND NULLIF(TRIM(telefono), '') IS NOT NULL
-            AND NULLIF(TRIM(correo), '') IS NOT NULL
-            AND NULLIF(TRIM(codigo_postal), '') IS NOT NULL
-        )
-        WHERE telefono = $1
-        `,
-        [telefono]
-    );
-}
-
 
 async function verificarPerfilCompleto(telefono) {
 
@@ -291,47 +271,6 @@ async function obtenerBuscadorPorId(id) {
 }
 
 
-
-async function obtenerUsuarioPorFolio(folio) {
-
-    const resultado = await db.query(
-        `
-        SELECT
-            nombre_completo,
-            curp,
-            fecha_nacimiento,
-            sexo,
-            telefono,
-            correo,
-            codigo_postal,
-            municipio,
-            colonia,
-            nivel_estudios,
-            carrera,
-            experiencia,
-            puesto_solicitado,
-            disponibilidad,
-            licencia_conducir,
-            vehiculo_propio,
-            disponibilidad_viajar,
-            sueldo_deseado,
-            horario,
-            recibir_vacantes,
-            folio,
-            perfil_completo,
-            fecha_registro
-        FROM buscadores_empleo
-        WHERE UPPER(folio) = UPPER($1)
-        LIMIT 1
-        `,
-        [folio.trim()]
-    );
-
-    return resultado.rows[0] || null;
-}
-
-
-
 async function buscarVacantesPorPuesto(telefono) {
 
     try {
@@ -368,245 +307,6 @@ Por favor intenta nuevamente más tarde.
 }
 
 
-
-async function buscarVacantesPorPuestoPorId(id) {
-
-    try {
-
-        console.log(
-            "🔐 Buscando vacantes mediante usuario autorizado."
-        );
-
-        console.log(
-            "🆔 ID del usuario:",
-            id
-        );
-
-        const usuario =
-            await obtenerBuscadorPorId(id);
-
-        if (!usuario) {
-
-            console.log(
-                "⚠️ No se encontró usuario con ID:",
-                id
-            );
-
-            return `
-⚠️ No encontramos tu registro.
-`;
-        }
-
-        return buscarVacantesPorUsuario(
-            usuario
-        );
-
-    } catch (error) {
-
-        console.error(
-            "❌ Error en buscarVacantesPorPuestoPorId():",
-            error
-        );
-
-        return `
-❌ Ocurrió un error al buscar las vacantes.
-
-Por favor intenta nuevamente más tarde.
-`;
-    }
-}
-
-
-
-async function buscarVacantesPorUsuario(usuario) {
-
-    const puestoSolicitado =
-        usuario.puesto_solicitado?.trim();
-
-    if (!puestoSolicitado) {
-
-        return `
-⚠️ No tienes un puesto solicitado registrado.
-
-Primero debes completar tu perfil.
-`;
-    }
-
-    console.log(
-        "🔎 Buscando vacantes para:",
-        puestoSolicitado
-    );
-
-    const resultado = await db.query(
-        `
-        SELECT
-            id,
-            folio_oferta,
-            folio_empresa,
-            empresa,
-            puesto,
-            area,
-            subarea,
-            nivel_estudios,
-            experiencia,
-            entidad,
-            municipio,
-            numero_plazas,
-            salario,
-            fecha_publicacion,
-
-            GREATEST(
-                similarity(
-                    LOWER(puesto),
-                    LOWER($1)
-                ),
-                similarity(
-                    COALESCE(LOWER(area), ''),
-                    LOWER($1)
-                ),
-                similarity(
-                    COALESCE(LOWER(subarea), ''),
-                    LOWER($1)
-                )
-            ) AS similitud
-
-        FROM vacantes
-
-        WHERE
-            similarity(
-                LOWER(puesto),
-                LOWER($1)
-            ) >= 0.20
-
-            OR similarity(
-                COALESCE(LOWER(area), ''),
-                LOWER($1)
-            ) >= 0.20
-
-            OR similarity(
-                COALESCE(LOWER(subarea), ''),
-                LOWER($1)
-            ) >= 0.20
-
-        ORDER BY similitud DESC
-
-        LIMIT 10;
-        `,
-        [puestoSolicitado]
-    );
-
-    const vacantes =
-        resultado.rows;
-
-    console.log(
-        `🔎 Vacantes encontradas: ${vacantes.length}`
-    );
-
-    if (vacantes.length === 0) {
-
-        return `
-😕 No encontramos vacantes relacionadas con:
-
-💼 ${puestoSolicitado}
-
-Puedes intentar con otro puesto.
-`;
-    }
-
-    let respuesta = `
-🔎 *Vacantes encontradas para:*
-💼 ${puestoSolicitado}
-
-`;
-
-    vacantes.forEach(
-        (vacante, index) => {
-
-            const salario =
-                vacante.salario
-                    ? `$${Number(
-                        vacante.salario
-                    ).toLocaleString(
-                        "es-MX"
-                    )} MXN`
-                    : "No especificado";
-
-            const ubicacion = [
-                vacante.municipio,
-                vacante.entidad
-            ]
-                .filter(Boolean)
-                .join(", ")
-                || "No especificada";
-
-            const plazas =
-                vacante.numero_plazas
-                    ? vacante.numero_plazas
-                    : "No especificado";
-
-            const fecha =
-                vacante.fecha_publicacion
-                    ? new Date(
-                        vacante.fecha_publicacion
-                    ).toLocaleDateString(
-                        "es-MX",
-                        {
-                            day: "2-digit",
-                            month: "2-digit",
-                            year: "numeric"
-                        }
-                    )
-                    : "No especificada";
-
-            respuesta += `
-━━━━━━━━━━━━━━━━━━
-
-*${index + 1}. ${
-                vacante.puesto ||
-                "Puesto no especificado"
-            }*
-
-🏢 Empresa:
-${vacante.empresa || "No especificada"}
-
-📂 Área:
-${vacante.area || "No especificada"}
-
-📌 Subárea:
-${vacante.subarea || "No especificada"}
-
-🎓 Nivel de estudios:
-${vacante.nivel_estudios || "No especificado"}
-
-💼 Experiencia:
-${vacante.experiencia || "No especificada"}
-
-📍 Ubicación:
-${ubicacion}
-
-💰 Salario:
-${salario}
-
-👥 Plazas disponibles:
-${plazas}
-
-📅 Publicación:
-${fecha}
-
-📄 Folio:
-${vacante.folio_oferta || "No especificado"}
-`;
-        }
-    );
-
-    respuesta += `
-━━━━━━━━━━━━━━━━━━
-
-📌 Se muestran las 10 vacantes más relacionadas con tu búsqueda.
-`;
-
-    return respuesta;
-}
 
 
 async function crearBuscadorCompleto(
@@ -904,8 +604,6 @@ async function importarBuscadorHistorico(datos, telefono) {
 
 
 
-
-
 async function actualizarBuscadorCompletoPorId(id, datos) {
     const cliente = await db.connect();
 
@@ -1005,10 +703,6 @@ async function actualizarCampoPerfilPorId(id, campo, valor) {
 
         await cliente.query("BEGIN");
 
-        // =============================================
-        // ACTUALIZAR SOLAMENTE EL CAMPO FALTANTE
-        // =============================================
-
         const resultado = await cliente.query(
             `
             UPDATE buscadores_empleo
@@ -1028,9 +722,6 @@ async function actualizarCampoPerfilPorId(id, campo, valor) {
             );
         }
 
-        // =============================================
-        // RECALCULAR PERFIL COMPLETO
-        // =============================================
 
         const resultadoPerfil = await cliente.query(
             `
@@ -1053,9 +744,6 @@ async function actualizarCampoPerfilPorId(id, campo, valor) {
         let buscador =
             resultadoPerfil.rows[0];
 
-        // =============================================
-        // GENERAR FOLIO SI EL PERFIL YA ESTÁ COMPLETO
-        // =============================================
 
         if (
             buscador.perfil_completo === true &&
@@ -1155,19 +843,13 @@ module.exports = {
 
     generarFolio,
 
-    completarPerfil,
-
     verificarPerfilCompleto,
 
     obtenerBuscadorPorTelefono,
 
     obtenerBuscadorPorId,
 
-    obtenerUsuarioPorFolio,
-
     buscarVacantesPorPuesto,
-
-    buscarVacantesPorPuestoPorId,
 
     buscarPorCURP,
 

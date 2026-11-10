@@ -30,19 +30,14 @@ const LAYOUT = {
     headerHeight: 90
 };
 
-/**
- * Genera el folio de la postulación.
- * Ejemplo: SNE-POST-2026-000123
- */
+
 function generarFolioPostulacion(postulacionId, fecha) {
     const year = new Date(fecha).getFullYear();
 
     return `SNE-POST-${year}-${String(postulacionId).padStart(6, "0")}`;
 }
 
-/**
- * Formatea la fecha para el comprobante.
- */
+
 function formatearFecha(fecha) {
     if (!fecha) return "No disponible";
 
@@ -52,9 +47,7 @@ function formatearFecha(fecha) {
     });
 }
 
-/**
- * Formatea el salario como moneda mexicana.
- */
+
 function formatearSalario(salario) {
     if (
         salario === null ||
@@ -120,11 +113,9 @@ function dibujarEncabezado(doc, folio, fecha) {
         headerHeight
     } = LAYOUT;
 
-    // Fondo verde institucional.
     doc.rect(0, 0, pageWidth, headerHeight)
         .fill(COLOR.forest);
 
-    // Franja inferior verde oscuro.
     doc.rect(
         0,
         headerHeight - 8,
@@ -132,7 +123,6 @@ function dibujarEncabezado(doc, folio, fecha) {
         8
     ).fill(COLOR.forestDark);
 
-    // Logo institucional local.
     if (fs.existsSync(LOGO_SNE)) {
         doc.image(LOGO_SNE, 40, 17, {
             fit: [100, 52],
@@ -140,7 +130,7 @@ function dibujarEncabezado(doc, folio, fecha) {
             valign: "center"
         });
     } else {
-        // Respaldo si no existe el archivo del logo.
+
         doc.circle(66, 43, 25)
             .fill(COLOR.gold);
 
@@ -153,7 +143,6 @@ function dibujarEncabezado(doc, folio, fecha) {
             });
     }
 
-    // Nombre institucional.
     doc.font("Helvetica-Bold")
         .fontSize(13)
         .fillColor(COLOR.surface)
@@ -164,7 +153,6 @@ function dibujarEncabezado(doc, folio, fecha) {
             { width: 405 }
         );
 
-    // Subtítulo.
     doc.font("Helvetica")
         .fontSize(9)
         .fillColor(COLOR.goldSoft)
@@ -174,7 +162,7 @@ function dibujarEncabezado(doc, folio, fecha) {
             39
         );
 
-    // Folio.
+
     doc.font("Helvetica")
         .fontSize(8)
         .fillColor("#dce9e2")
@@ -182,7 +170,6 @@ function dibujarEncabezado(doc, folio, fecha) {
             width: 220
         });
 
-    // Fecha.
     doc.font("Helvetica")
         .fontSize(7.5)
         .fillColor("#dce9e2")
@@ -191,7 +178,7 @@ function dibujarEncabezado(doc, folio, fecha) {
             align: "right"
         });
 
-    // Línea decorativa institucional.
+
     dibujarLineaTopografica(
         doc,
         marginX,
@@ -378,9 +365,7 @@ function dibujarResumen(doc, folioPostulacion) {
         );
 }
 
-/**
- * Pie de página institucional.
- */
+
 function dibujarPie(doc) {
     const y = 710;
 
@@ -416,12 +401,6 @@ function dibujarPie(doc) {
         );
 }
 
-
-
-/**
- * Genera el comprobante PDF de postulación.
- * El contenido se dibuja en una sola página tamaño carta.
- */
 async function generarComprobantePostulacion(datos) {
     return new Promise((resolve, reject) => {
         try {
@@ -457,7 +436,7 @@ async function generarComprobantePostulacion(datos) {
 
             doc.pipe(stream);
 
-            // Fondo de la única página.
+
             doc.rect(
                 0,
                 0,
@@ -465,14 +444,14 @@ async function generarComprobantePostulacion(datos) {
                 LAYOUT.pageHeight
             ).fill(COLOR.cream);
 
-            // Encabezado institucional.
+     
             dibujarEncabezado(
                 doc,
                 folioPostulacion,
                 formatearFecha(datos.fecha_postulacion)
             );
 
-            // Estado de la postulación.
+       
             doc.roundedRect(50, 111, 512, 40, 6)
                 .fill(COLOR.goldLight);
 
@@ -502,7 +481,7 @@ async function generarComprobantePostulacion(datos) {
                     }
                 );
 
-            // Datos del buscador de empleo.
+
             dibujarTituloSeccion(
                 doc,
                 "Datos del buscador de empleo",
@@ -565,7 +544,7 @@ async function generarComprobantePostulacion(datos) {
                 30
             );
 
-            // Datos de la vacante.
+
             dibujarTituloSeccion(
                 doc,
                 "Datos de la vacante",
@@ -649,12 +628,12 @@ async function generarComprobantePostulacion(datos) {
                 30
             );
 
-            // Aviso institucional, resumen y pie.
+
             dibujarBloqueImportante(doc);
             dibujarResumen(doc, folioPostulacion);
             dibujarPie(doc);
 
-            // Finalizar el PDF sin agregar otra página.
+
             doc.end();
 
             stream.on("finish", () => {

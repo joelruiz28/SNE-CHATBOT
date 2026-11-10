@@ -22,7 +22,7 @@ async function obtenerResumen(req, res) {
     } catch (error) {
 
         console.error(
-            "❌ Error en resumen de reportes:",
+            " Error en resumen de reportes:",
             error
         );
 
@@ -47,7 +47,7 @@ async function personasPorMunicipio(req, res) {
     } catch (error) {
 
         console.error(
-            "❌ Error personas por municipio:",
+            " Error personas por municipio:",
             error
         );
 
@@ -72,7 +72,7 @@ async function puestosMasSolicitados(req, res) {
     } catch (error) {
 
         console.error(
-            "❌ Error puestos más solicitados:",
+            " Error puestos más solicitados:",
             error
         );
 
@@ -96,7 +96,7 @@ async function vacantesPorMunicipio(req, res) {
     } catch (error) {
 
         console.error(
-            "❌ Error vacantes por municipio:",
+            " Error vacantes por municipio:",
             error
         );
 
@@ -121,7 +121,7 @@ async function vacantesPorArea(req, res) {
     } catch (error) {
 
         console.error(
-            "❌ Error vacantes por área:",
+            " Error vacantes por área:",
             error
         );
 
@@ -146,7 +146,7 @@ async function empresasConMasVacantes(req, res) {
     } catch (error) {
 
         console.error(
-            "❌ Error empresas con más vacantes:",
+            " Error empresas con más vacantes:",
             error
         );
 
@@ -170,7 +170,7 @@ async function demandaVsOferta(req, res) {
     } catch (error) {
 
         console.error(
-            "❌ Error demanda vs oferta:",
+            " Error demanda vs oferta:",
             error
         );
 
@@ -193,7 +193,7 @@ async function obtenerDashboard(req, res) {
     } catch (error) {
 
         console.error(
-            "❌ Error en dashboard de reportes:",
+            " Error en dashboard de reportes:",
             error
         );
 

@@ -2,10 +2,6 @@
 const db = require("../config/database");
 const { obtenerVacantesSQLServer } = require("../repositories/vacantes.repository");
 
-//Sincroniza las vacantes vigentes de SQL Server con PostgreSQL y  CveVacante como identificador de origen.
-
-
-
 async function sincronizarVacantesExternas(limite = 100) {
     const cantidad = Math.max(
         1,
@@ -137,7 +133,6 @@ async function sincronizarVacantesExternas(limite = 100) {
             offset += vacantes.length;
         }
 
-        // Protección: no borrar la caché si la consulta no devolvió
         // ninguna vacante. Investigar primero ese escenario.
         if (idsPublicables.length === 0) {
             throw new Error(
@@ -147,8 +142,6 @@ async function sincronizarVacantesExternas(limite = 100) {
         }
 
         // Retirar de la caché las vacantes vencidas, desactivadas
-        // o que ya no aparecen entre las publicables de SQL Server.
-        // Se ejecuta solamente después de completar todos los lotes.
         const resultadoLimpieza = await cliente.query(
             `
             DELETE FROM vacantes_externas

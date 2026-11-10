@@ -23,8 +23,6 @@ const {
 
 
 
-
-
 exports.verificarWebhook = (req, res) => {
 
     const modo = req.query["hub.mode"];

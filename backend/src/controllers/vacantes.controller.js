@@ -18,7 +18,7 @@ async function listarVacantes(req, res) {
     } catch (error) {
 
         console.error(
-            "❌ Error al obtener vacantes:",
+            " Error al obtener vacantes:",
             error
         );
 
@@ -54,7 +54,7 @@ async function obtenerVacante(req, res) {
     } catch (error) {
 
         console.error(
-            "❌ Error al obtener vacante:",
+            " Error al obtener vacante:",
             error
         );
 
@@ -112,7 +112,7 @@ async function cambiarEstadoVacante(req, res) {
     } catch (error) {
 
         console.error(
-            "❌ Error al actualizar estado:",
+            " Error al actualizar estado:",
             error.message
         );
 

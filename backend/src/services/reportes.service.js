@@ -278,10 +278,6 @@ async function obtenerEmpresasConMasVacantes() {
 }
 
 
-// =====================================================
-// DATOS PRINCIPALES DEL DASHBOARD DE REPORTES
-// =====================================================
-
 async function obtenerDashboardReportes() {
     const [
         resumen,

@@ -1,4 +1,3 @@
-
 const {
     actualizarDato,
     actualizarDatoPorId
@@ -75,9 +74,6 @@ async function procesarActualizacion(
 
     switch (sesion.paso_actual) {
 
-        // =====================================
-        // SELECCIONAR DATO
-        // =====================================
 
         case "seleccionar_actualizacion":
 
@@ -161,10 +157,6 @@ Ejemplo:
             break;
 
 
-        // =====================================
-        // ACTUALIZAR CORREO
-        // =====================================
-
         case "actualizar_correo": {
 
             if (
@@ -227,11 +219,6 @@ ${correo}`;
 
             break;
         }
-
-
-        // =====================================
-        // ACTUALIZAR CÓDIGO POSTAL
-        // =====================================
 
         case "actualizar_codigo_postal": {
 

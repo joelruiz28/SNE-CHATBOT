@@ -1,4 +1,3 @@
-
 const {
     obtenerSesionesParaAdvertencia,
     marcarAdvertenciaInactividad,
@@ -10,14 +9,13 @@ const {
     enviarMensajeWhatsApp
 } = require("./whatsapp.service");
 
-// Configuración del sistema
+
 const INTERVALO_REVISION = 30 * 1000;
 
 let temporizador = null;
 let ejecutando = false;
 
 
-// Mensaje de advertencia (8 minutos)
 const MENSAJE_ADVERTENCIA =
     "👋 ¡Hola! Seguimos aquí para ayudarte.\n\n" +
     "Hemos notado que llevas algunos minutos sin interactuar con nuestro chatbot.\n\n" +
@@ -29,7 +27,7 @@ const MENSAJE_ADVERTENCIA =
     "🇲🇽 Servicio Nacional de Empleo | Chiapas";
 
 
-// Mensaje de cierre (10 minutos)
+
 const MENSAJE_CIERRE =
     "👋 Te informamos que hemos cerrado esta conversación " +
     "porque no detectamos actividad durante 10 minutos.\n\n" +
@@ -40,7 +38,6 @@ const MENSAJE_CIERRE =
     "🇲🇽 ¡Gracias por comunicarte con nosotros!";
 
 
-// Procesar advertencias
 async function procesarAdvertencias() {
 
     const sesiones = await obtenerSesionesParaAdvertencia();
@@ -49,7 +46,7 @@ async function procesarAdvertencias() {
 
         try {
 
-            // Marcar antes del envío para evitar duplicados.
+            
             const marcada = await marcarAdvertenciaInactividad(
                 sesion.telefono
             );
@@ -74,9 +71,7 @@ async function procesarAdvertencias() {
                 error.response?.data || error.message
             );
 
-            // Permitir un nuevo intento si el envío falló.
-            // La condición evita modificar sesiones que ya recibieron
-            // un mensaje posterior o que fueron finalizadas.
+
             try {
                 const db = require("../config/database");
 
@@ -107,7 +102,7 @@ async function procesarAdvertencias() {
 }
 
 
-// Procesar cierres automáticos
+
 async function procesarCierres() {
 
     const sesiones = await obtenerSesionesParaCerrar();
@@ -116,7 +111,7 @@ async function procesarCierres() {
 
         try {
 
-            // Cerrar únicamente si todavía cumple los 10 minutos.
+
             const sesionCerrada = await cerrarSesionPorInactividad(
                 sesion.telefono
             );
@@ -129,7 +124,7 @@ async function procesarCierres() {
                 `🔒 Sesión cerrada por inactividad: ${sesion.telefono}`
             );
 
-            // Notificar al usuario después de cerrar la sesión.
+   
             try {
 
                 await enviarMensajeWhatsApp(
@@ -160,10 +155,10 @@ async function procesarCierres() {
 }
 
 
-// Revisar todas las sesiones pendientes
+
 async function revisarInactividad() {
 
-    // Evitar que dos revisiones se ejecuten simultáneamente.
+
     if (ejecutando) {
         return;
     }
@@ -191,7 +186,6 @@ async function revisarInactividad() {
 }
 
 
-// Iniciar el servicio automático
 function iniciarServicioInactividad() {
 
     if (temporizador) {
@@ -199,21 +193,15 @@ function iniciarServicioInactividad() {
         return;
     }
 
-    console.log("🟢 Servicio de inactividad iniciado.");
-    console.log("⏳ Advertencia: 8 minutos.");
-    console.log("🔒 Cierre automático: 10 minutos.");
-    console.log("🔄 Revisión cada 30 segundos.");
-
-    // Ejecutar una revisión al iniciar.
     revisarInactividad();
 
-    // Revisar periódicamente.
+
     temporizador = setInterval(
         revisarInactividad,
         INTERVALO_REVISION
     );
 
-    // Evitar que el temporizador impida cerrar el proceso Node.
+
     if (temporizador.unref) {
         temporizador.unref();
     }

@@ -18,7 +18,7 @@ async function listarPersonas(req, res) {
     } catch (error) {
 
         console.error(
-            "❌ Error al obtener personas:",
+            " Error al obtener personas:",
             error
         );
 
@@ -52,7 +52,7 @@ async function obtenerPersona(req, res) {
     } catch (error) {
 
         console.error(
-            "❌ Error al obtener persona:",
+            " Error al obtener persona:",
             error
         );
 

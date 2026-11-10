@@ -23,7 +23,7 @@ async function obtenerDashboard(req, res) {
     } catch (error) {
 
         console.error(
-            "❌ Error al obtener datos del dashboard:",
+            "Error al obtener datos del dashboard:",
             error
         );
 

@@ -31,14 +31,9 @@ async function crearPostulacion(
         throw new Error("Origen de vacante no válido.");
     }
 
-    // ========================================================
-    // VACANTES DE SQL SERVER
-    // ========================================================
 
     if (origen === "sqlserver") {
 
-        // 1. Evitar ejecutar nuevamente el procedimiento
-        // si ya existe la postulación en PostgreSQL.
 
         const postulacionExistente =
             await obtenerPostulacionPorBuscadorYVacante(
@@ -55,7 +50,7 @@ async function crearPostulacion(
             return null;
         }
 
-        // 2. Obtener los datos del buscador en PostgreSQL.
+
 
         const resultadoBuscador = await db.query(
             `
@@ -89,7 +84,7 @@ async function crearPostulacion(
             );
         }
 
-        // 3. Buscar o registrar al solicitante oficial.
+
 
         const solicitante =
             await registrarSolicitanteSQLServer(buscador);
@@ -105,7 +100,7 @@ async function crearPostulacion(
             solicitante.id
         );
 
-        // 4. Buscar o crear su expediente activo.
+  
 
         const expediente =
             await obtenerOCrearExpedienteActivoSQLServer(
@@ -123,7 +118,7 @@ async function crearPostulacion(
             expediente.id
         );
 
-        // 5. Esperar la conexión existente.
+
 
         await sqlserver.poolConectado;
 
@@ -171,8 +166,6 @@ async function crearPostulacion(
         console.log("CveEnvio:", cveEnvio);
         console.log("Mensaje:", mensajeError);
 
-        // DUPLICADO significa que ya existe un envío oficial.
-        // Podemos continuar registrando su referencia en PostgreSQL.
 
         if (
             mensajeError &&
@@ -187,7 +180,7 @@ async function crearPostulacion(
             );
         }
 
-        // 6. Registrar la postulación en PostgreSQL.
+
 
         const resultadoPostgres = await db.query(
             `
@@ -206,7 +199,7 @@ async function crearPostulacion(
 
         let postulacion = resultadoPostgres.rows[0] || null;
 
-        // Si hubo una inserción concurrente, recuperar el registro.
+
 
         if (!postulacion) {
             postulacion =
@@ -233,10 +226,6 @@ async function crearPostulacion(
         };
     }
 
-    // ========================================================
-    // VACANTES DE POSTGRESQL
-    // CONSERVAR COMPORTAMIENTO ACTUAL
-    // ========================================================
 
     const resultado = await db.query(
         `

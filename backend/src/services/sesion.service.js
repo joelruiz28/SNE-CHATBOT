@@ -1,6 +1,5 @@
 const db = require("../config/database");
 
-// Buscar sesión del usuario
 async function obtenerSesion(telefono) {
 
     const resultado = await db.query(
@@ -16,7 +15,6 @@ async function obtenerSesion(telefono) {
 }
 
 
-// Crear sesión nueva
 async function crearSesion(telefono) {
 
     const resultado = await db.query(
@@ -49,7 +47,6 @@ async function crearSesion(telefono) {
 }
 
 
-// Actualizar paso actual
 async function actualizarPaso(telefono, paso) {
 
     await db.query(
@@ -72,7 +69,6 @@ async function actualizarPaso(telefono, paso) {
 }
 
 
-// Aumentar intentos fallidos
 async function aumentarIntento(telefono) {
 
     const resultado = await db.query(
@@ -92,7 +88,6 @@ async function aumentarIntento(telefono) {
 }
 
 
-// Reiniciar intentos
 async function reiniciarIntentos(telefono) {
 
     await db.query(
@@ -109,7 +104,6 @@ async function reiniciarIntentos(telefono) {
 }
 
 
-// Reiniciar conversación
 async function reiniciarSesion(telefono) {
 
     await db.query(
@@ -135,7 +129,6 @@ async function reiniciarSesion(telefono) {
 }
 
 
-// Actualizar datos temporales
 async function actualizarDatosTemporales(telefono, datos) {
 
     await db.query(
@@ -160,7 +153,6 @@ async function actualizarDatosTemporales(telefono, datos) {
 }
 
 
-// Registrar actividad real del usuario
 async function registrarActividad(telefono) {
 
     await db.query(
@@ -179,7 +171,6 @@ async function registrarActividad(telefono) {
 }
 
 
-// Obtener sesiones que necesitan advertencia (8 minutos)
 async function obtenerSesionesParaAdvertencia() {
 
     const resultado = await db.query(
@@ -202,7 +193,6 @@ async function obtenerSesionesParaAdvertencia() {
 }
 
 
-// Marcar advertencia como enviada
 async function marcarAdvertenciaInactividad(telefono) {
 
     const resultado = await db.query(
@@ -227,7 +217,6 @@ async function marcarAdvertenciaInactividad(telefono) {
 }
 
 
-// Obtener sesiones que superaron los 10 minutos
 async function obtenerSesionesParaCerrar() {
 
     const resultado = await db.query(
@@ -246,7 +235,6 @@ async function obtenerSesionesParaCerrar() {
 }
 
 
-// Cerrar sesión por inactividad
 async function cerrarSesionPorInactividad(telefono) {
 
     const resultado = await db.query(
@@ -284,7 +272,6 @@ module.exports = {
     reiniciarSesion,
     actualizarDatosTemporales,
 
-    // Funciones de control de inactividad
     registrarActividad,
     obtenerSesionesParaAdvertencia,
     marcarAdvertenciaInactividad,

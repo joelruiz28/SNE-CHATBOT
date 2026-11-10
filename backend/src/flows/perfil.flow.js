@@ -56,10 +56,6 @@ Regresando al menú principal.`;
             break;
 
 
-        // ==========================================
-        // CORREO
-        // ==========================================
-
         case "esperando_correo":
 
             if (

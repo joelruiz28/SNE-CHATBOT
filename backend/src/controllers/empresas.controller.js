@@ -27,7 +27,7 @@ async function obtenerEmpresasController(req, res) {
     } catch (error) {
 
         console.error(
-            "❌ Error al obtener empresas:",
+            " Error al obtener empresas:",
             error
         );
 

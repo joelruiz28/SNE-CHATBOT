@@ -14,20 +14,17 @@ const dashboardRoutes = require("./routes/dashboard.routes");
 const personasRoutes = require("./routes/personas.routes");
 const vacantesRoutes = require("./routes/vacantes.routes");
 const empresasRoutes = require("./routes/empresas.routes");
-const foliosRoutes = require("./routes/folios.routes");
+
 const reportesRoutes = require("./routes/reportes.routes");
 const whatsappRoutes = require("./routes/whatsapp.routes");
 const postulacionesRoutes = require("./routes/postulaciones.routes");
 
 const app = express();
 
-
-// Middlewares
 app.use(cors());
 app.use(express.json());
 
-
-// Rutas 
+ 
 app.use("/api/chatbot", chatbotRoutes);
 
 app.use("/api/dashboard", dashboardRoutes);
@@ -38,7 +35,6 @@ app.use("/api/vacantes", vacantesRoutes);
 
 app.use("/api/empresas", empresasRoutes);
 
-app.use("/api/folios", foliosRoutes);
 
 app.use("/api/reportes", reportesRoutes);
 

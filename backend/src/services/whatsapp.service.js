@@ -63,11 +63,7 @@ async function enviarMensajeWhatsApp(telefono, mensaje) {
     }
 }
 
-/**
- * Envía una lista interactiva de vacantes.
- * El identificador conserva el origen para evitar
- * confundir IDs de PostgreSQL con IDs de SQL Server.
- */
+
 async function enviarListaVacantesWhatsApp(
     telefono,
     escolaridad,
@@ -216,9 +212,7 @@ async function subirDocumentoWhatsApp(rutaArchivo) {
     }
 }
 
-/**
- * Envía un documento PDF utilizando el media_id de WhatsApp.
- */
+
 async function enviarDocumentoWhatsApp(
     telefono,
     mediaId,

@@ -8,7 +8,7 @@ const { procesarRegistro } = require("../flows/registro.flow");
 const { procesarActualizacion } = require("../flows/actualizacion.flow");
 const { procesarVacantes } = require("../flows/vacantes.flow");
 const { procesarPerfil } = require("../flows/perfil.flow");
-const { procesarFolio } = require("../flows/folio.flow");
+
 const { procesarPostulaciones } = require("../flows/postulaciones.flow");
 
 
@@ -49,9 +49,7 @@ let entidad = null;
 
     let comando = mensaje.toLowerCase();
 
-    // Identificadores del menú interactivo de WhatsApp.
-    
-    // Identificadores de las opciones interactivas de WhatsApp.
+
     const opcionesMenuIds = {
         buscar_vacantes: "1",
         registrar_datos: "2",
@@ -63,8 +61,6 @@ let entidad = null;
         salir: "7"
     };
 
-    // Traducir las selecciones del menú a las opciones existentes.
-    // Conserva la compatibilidad con quienes escriben números.
     if (
         sesion.paso_actual === "menu" &&
         Object.prototype.hasOwnProperty.call(
@@ -77,7 +73,6 @@ let entidad = null;
     }
 
 
-    // Salir o cancelar.
     if (
         comando === "7" ||
         comando === "salir" ||
@@ -91,9 +86,7 @@ let entidad = null;
         };
     }
 
-    
-    // Mostrar el menú cuando se solicita explícitamente
-    // o cuando el controlador inicia una nueva interacción.
+
     if (
         comando === "mostrar_menu" ||
         comando === "menu" ||
